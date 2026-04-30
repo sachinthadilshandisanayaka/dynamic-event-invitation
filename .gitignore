@@ -1,0 +1,42 @@
+# Build outputs
+frontend/dist/
+frontend/node_modules/
+backend/target/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+
+# Maven
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker volumes (local dev)
+postgres_data/
+redis_data/
+minio_data/
+
+# OS
+.DS_Store

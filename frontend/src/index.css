@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-body, 'Inter', sans-serif);
+    background-color: var(--color-bg, #ffffff);
+    color: var(--color-text, #111827);
+    margin: 0;
+  }
+}
+
+@layer components {
+  .widget-section {
+    @apply w-full;
+  }
+}
+
+/* Leaflet overrides */
+.leaflet-container {
+  font-family: inherit;
+  border-radius: var(--border-radius, 8px);
+}
