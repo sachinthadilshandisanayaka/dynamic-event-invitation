@@ -105,11 +105,12 @@ public class RsvpService {
 
         // Save custom field values
         if (req.fieldValues() != null && !req.fieldValues().isEmpty()) {
-            fieldValueRepository.deleteByRsvpId(rsvp.getId());
+            final UUID savedRsvpId = rsvp.getId();
+            fieldValueRepository.deleteByRsvpId(savedRsvpId);
             List<RsvpFieldValue> values = req.fieldValues().entrySet().stream()
                     .map(e -> customFieldRepository.findById(UUID.fromString(e.getKey()))
                             .map(cf -> RsvpFieldValue.builder()
-                                    .rsvpId(rsvp.getId())
+                                    .rsvpId(savedRsvpId)
                                     .fieldId(cf.getId())
                                     .value(e.getValue())
                                     .build())

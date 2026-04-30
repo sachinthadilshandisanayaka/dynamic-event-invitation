@@ -9,6 +9,9 @@ backend/target/
 .env.*.local
 *.env
 
+# Local dev configs (contain local credentials)
+backend/src/main/resources/application-local.yml
+
 # Java
 *.class
 *.jar

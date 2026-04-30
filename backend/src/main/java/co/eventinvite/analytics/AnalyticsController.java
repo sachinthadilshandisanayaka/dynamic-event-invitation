@@ -64,7 +64,12 @@ public class AnalyticsController {
 
         List<Object[]> daily = analyticsRepository.dailyViewsForEvent(event.id());
         List<Map<String, Object>> dailyList = daily.stream()
-                .map(r -> Map.of("day", r[0].toString(), "views", ((Number) r[1]).longValue()))
+                .map(r -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("day", r[0].toString());
+                    m.put("views", ((Number) r[1]).longValue());
+                    return m;
+                })
                 .toList();
 
         return ResponseEntity.ok(ApiResponse.ok(Map.of(
