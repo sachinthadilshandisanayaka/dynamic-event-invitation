@@ -1,0 +1,67 @@
+pipeline {
+    agent any
+
+    environment {
+        PROJECT_DIR = '/root/event-invitation-system'
+        BRANCH      = 'release_v1'
+        COMPOSE_FILE = 'docker-compose.yml'
+    }
+
+    stages {
+
+        stage('Pull Latest Code') {
+            steps {
+                sh """
+                    cd ${PROJECT_DIR}
+                    git fetch origin
+                    git checkout ${BRANCH}
+                    git pull origin ${BRANCH}
+                """
+            }
+        }
+
+        stage('Stop Old Containers') {
+            steps {
+                sh """
+                    cd ${PROJECT_DIR}
+                    docker compose -f ${COMPOSE_FILE} down --remove-orphans || true
+                """
+            }
+        }
+
+        stage('Build & Deploy') {
+            steps {
+                sh """
+                    cd ${PROJECT_DIR}
+                    docker compose -f ${COMPOSE_FILE} up -d --build
+                """
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                sh 'sleep 40'
+                sh 'curl -sf http://localhost:8090/api/actuator/health | grep -q \'"status":"UP"\''
+                sh 'curl -sf -o /dev/null -w "%{http_code}" http://localhost:8091 | grep -q 200'
+                echo 'All health checks passed.'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '=========================================='
+            echo ' Event Invitation System deployed OK!'
+            echo ' Frontend : http://95.216.188.135:8091'
+            echo ' Backend  : http://95.216.188.135:8090/api'
+            echo '=========================================='
+        }
+        failure {
+            echo 'Deployment FAILED. Showing last 80 log lines:'
+            sh "cd ${PROJECT_DIR} && docker compose logs --tail=80 || true"
+        }
+        always {
+            sh "cd ${PROJECT_DIR} && docker compose ps || true"
+        }
+    }
+}
