@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Check, AlertTriangle } from 'lucide-react'
+import { X, Check } from 'lucide-react'
 import { TEMPLATES, buildSections, type Template } from '../../data/templates'
 import { useBuilderStore } from '../../store/builderStore'
 
@@ -69,13 +69,8 @@ interface Props {
 export function TemplatePickerModal({ onClose, onApplied, eventDate, timezone }: Props) {
   const { setSections, setTheme } = useBuilderStore()
   const [selected, setSelected] = useState<Template>(TEMPLATES[0])
-  const [confirmed, setConfirmed] = useState(false)
 
   const applyTemplate = () => {
-    if (!confirmed) {
-      setConfirmed(true)
-      return
-    }
     const sections = buildSections(selected, eventDate, timezone)
     setSections(sections)
     setTheme(selected.theme)
@@ -109,7 +104,7 @@ export function TemplatePickerModal({ onClose, onApplied, eventDate, timezone }:
                 key={t.id}
                 template={t}
                 selected={selected.id === t.id}
-                onSelect={() => { setSelected(t); setConfirmed(false) }}
+                onSelect={() => setSelected(t)}
               />
             ))}
           </div>
@@ -128,12 +123,6 @@ export function TemplatePickerModal({ onClose, onApplied, eventDate, timezone }:
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-100 shrink-0">
-          {confirmed && (
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-2.5 mb-3 text-sm">
-              <AlertTriangle size={15} className="shrink-0" />
-              <span>This will <strong>replace all current sections and theme</strong>. Click Apply again to confirm.</span>
-            </div>
-          )}
           <div className="flex gap-3">
             <button onClick={onClose}
               className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm">
@@ -141,13 +130,9 @@ export function TemplatePickerModal({ onClose, onApplied, eventDate, timezone }:
             </button>
             <button
               onClick={applyTemplate}
-              className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-colors ${
-                confirmed
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              }`}
+              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm transition-colors"
             >
-              {confirmed ? `Yes, Replace with ${selected.name}` : `Apply ${selected.name} Template`}
+              Apply {selected.name} Template
             </button>
           </div>
         </div>

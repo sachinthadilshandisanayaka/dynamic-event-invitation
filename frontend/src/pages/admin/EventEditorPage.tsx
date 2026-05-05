@@ -102,8 +102,9 @@ export function EventEditorPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      await layoutApi.save(slug, sections)
-      await themeApi.save(slug, theme)
+      const { sections: currentSections, theme: currentTheme } = useBuilderStore.getState()
+      await layoutApi.save(slug, currentSections)
+      await themeApi.save(slug, currentTheme)
     },
     onSuccess: () => {
       markClean()
