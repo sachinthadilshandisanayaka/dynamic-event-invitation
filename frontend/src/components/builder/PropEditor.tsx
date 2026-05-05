@@ -124,7 +124,7 @@ export function PropEditor({ widgets, slug }: Props) {
       case 'media':
         return (
           <div className="space-y-2">
-            {value && (
+            {!!value && (
               <div className="relative">
                 <img src={value as string} alt="" className="w-full h-24 object-cover rounded-lg" />
                 <button
@@ -144,7 +144,7 @@ export function PropEditor({ widgets, slug }: Props) {
               <input type="file" accept="image/*" className="hidden"
                 onChange={(e) => e.target.files?.[0] && handleMediaUpload(fieldKey, e.target.files[0])} />
             </label>
-            {value && (
+            {!!value && (
               <input className="prop-input text-xs" type="text" value={value as string}
                 onChange={(e) => update(fieldKey, e.target.value)} placeholder="or paste URL" />
             )}
