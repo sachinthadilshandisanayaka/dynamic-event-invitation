@@ -4,14 +4,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { eventsApi } from '../../api'
 import { useAuthStore } from '../../store/authStore'
 import type { EventResponse } from '../../types'
-import { Plus, Calendar, Globe, Archive, Edit, LogOut, BarChart2 } from 'lucide-react'
+import { Plus, Calendar, Globe, Archive, Edit, LogOut, BarChart2, Share2 } from 'lucide-react'
 import { CreateEventModal } from '../../components/builder/CreateEventModal'
+import { ShareModal } from '../../components/builder/ShareModal'
 
 export function DashboardPage() {
   const navigate = useNavigate()
   const { user, clearAuth } = useAuthStore()
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
+  const [shareEvent, setShareEvent] = useState<EventResponse | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['events'],
@@ -149,6 +151,14 @@ export function DashboardPage() {
                     )}
 
                     <button
+                      onClick={() => setShareEvent(event)}
+                      className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
+                      title="Share"
+                    >
+                      <Share2 size={16} />
+                    </button>
+
+                    <button
                       onClick={() => navigate(`/admin/events/${event.slug}?tab=analytics`)}
                       className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors"
                       title="Analytics"
@@ -174,6 +184,16 @@ export function DashboardPage() {
       </main>
 
       {showCreate && <CreateEventModal onClose={() => setShowCreate(false)} />}
+
+      {shareEvent && (
+        <ShareModal
+          slug={shareEvent.slug}
+          title={shareEvent.title}
+          isPublished={shareEvent.status === 'PUBLISHED'}
+          onClose={() => setShareEvent(null)}
+          onGoToEditor={() => { setShareEvent(null); navigate(`/admin/events/${shareEvent.slug}`) }}
+        />
+      )}
     </div>
   )
 }

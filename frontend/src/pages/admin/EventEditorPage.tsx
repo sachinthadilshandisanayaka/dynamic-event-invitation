@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { eventsApi, layoutApi, themeApi, widgetsApi } from '../../api'
@@ -11,8 +11,9 @@ import { ThemeEditor } from '../../components/builder/ThemeEditor'
 import { GuestManager } from '../../components/builder/GuestManager'
 import { AnalyticsDashboard } from '../../components/builder/AnalyticsDashboard'
 import { TemplatePickerModal } from '../../components/builder/TemplatePickerModal'
+import { ShareModal } from '../../components/builder/ShareModal'
 import {
-  ArrowLeft, Save, Globe, EyeOff, Eye, Palette, Users, BarChart2, Layout, Sparkles,
+  ArrowLeft, Save, Globe, EyeOff, Eye, Palette, Users, BarChart2, Layout, Sparkles, Share2,
 } from 'lucide-react'
 
 type Tab = 'builder' | 'theme' | 'guests' | 'analytics'
@@ -24,23 +25,43 @@ export function EventEditorPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<Tab>((searchParams.get('tab') as Tab) || 'builder')
   const [showTemplates, setShowTemplates] = useState(false)
-  const { sections, theme, setSections, setTheme, isDirty, markClean } = useBuilderStore()
+  const [showShare, setShowShare] = useState(false)
+  const initializedRef = useRef<string | null>(null)  // tracks which slug was initialized
+
+  const {
+    sections, theme, setSections, initTheme, isDirty, markClean, resetStore,
+  } = useBuilderStore()
+
+  // Reset store whenever we navigate to a different event
+  useEffect(() => {
+    resetStore()
+    initializedRef.current = null
+    return () => {
+      // Clean up when leaving editor
+      resetStore()
+    }
+  }, [slug])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!slug) {
+    navigate('/admin', { replace: true })
+    return null
+  }
 
   const { data: event } = useQuery({
     queryKey: ['event', slug],
-    queryFn: () => eventsApi.get(slug!),
+    queryFn: () => eventsApi.get(slug),
     enabled: !!slug,
   })
 
   const { data: layoutData } = useQuery({
     queryKey: ['layout', slug],
-    queryFn: () => layoutApi.get(slug!),
+    queryFn: () => layoutApi.get(slug),
     enabled: !!slug,
   })
 
   const { data: themeData } = useQuery({
     queryKey: ['theme', slug],
-    queryFn: () => themeApi.get(slug!),
+    queryFn: () => themeApi.get(slug),
     enabled: !!slug,
   })
 
@@ -49,28 +70,40 @@ export function EventEditorPage() {
     queryFn: () => widgetsApi.catalog(),
   })
 
-  // Initialize builder state from server data
+  // Initialize sections from server data
   useEffect(() => {
-    if (layoutData?.sections) {
+    if (!layoutData || initializedRef.current === slug) return
+
+    let parsed: Section[] = []
+    if (layoutData.sections) {
       try {
-        const parsed = typeof layoutData.sections === 'string'
+        parsed = typeof layoutData.sections === 'string'
           ? JSON.parse(layoutData.sections)
           : layoutData.sections
-        setSections(Array.isArray(parsed) ? parsed : [])
-      } catch { setSections([]) }
-    } else if (layoutData && !layoutData.sections) {
-      setSections([])
+        if (!Array.isArray(parsed)) parsed = []
+      } catch {
+        parsed = []
+      }
     }
-  }, [layoutData, setSections])
 
+    setSections(parsed)
+    initializedRef.current = slug
+
+    // Auto-open template picker when event has no sections yet
+    if (parsed.length === 0) {
+      setShowTemplates(true)
+    }
+  }, [layoutData, slug])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Initialize theme from server data (no dirty flag)
   useEffect(() => {
-    if (themeData) setTheme(themeData)
-  }, [themeData, setTheme])
+    if (themeData) initTheme(themeData)
+  }, [themeData])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      await layoutApi.save(slug!, sections)
-      await themeApi.save(slug!, theme)
+      await layoutApi.save(slug, sections)
+      await themeApi.save(slug, theme)
     },
     onSuccess: () => {
       markClean()
@@ -80,9 +113,10 @@ export function EventEditorPage() {
   })
 
   const publishMutation = useMutation({
-    mutationFn: () => event?.status === 'PUBLISHED'
-      ? eventsApi.unpublish(slug!)
-      : eventsApi.publish(slug!),
+    mutationFn: () =>
+      event?.status === 'PUBLISHED'
+        ? eventsApi.unpublish(slug)
+        : eventsApi.publish(slug),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['event', slug] }),
   })
 
@@ -98,8 +132,10 @@ export function EventEditorPage() {
       {/* Top bar */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/admin')}
-            className="flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-sm transition-colors">
+          <button
+            onClick={() => navigate('/admin')}
+            className="flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-sm transition-colors"
+          >
             <ArrowLeft size={16} /> Dashboard
           </button>
           <div className="h-5 w-px bg-gray-200" />
@@ -127,7 +163,7 @@ export function EventEditorPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Templates button — shown only in builder tab */}
+          {/* Templates button — builder tab only */}
           {activeTab === 'builder' && (
             <button
               onClick={() => setShowTemplates(true)}
@@ -138,11 +174,21 @@ export function EventEditorPage() {
             </button>
           )}
 
+          {/* Share button */}
+          <button
+            onClick={() => setShowShare(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+            title="Share event"
+          >
+            <Share2 size={14} /> Share
+          </button>
+
           {isDirty && (
             <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">
               Unsaved
             </span>
           )}
+
           {event?.status === 'PUBLISHED' && (
             <button
               onClick={() => window.open(`/${slug}`, '_blank')}
@@ -151,6 +197,7 @@ export function EventEditorPage() {
               <Eye size={14} /> Live
             </button>
           )}
+
           <button
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending || !isDirty}
@@ -158,6 +205,7 @@ export function EventEditorPage() {
           >
             <Save size={14} /> {saveMutation.isPending ? 'Saving...' : 'Save'}
           </button>
+
           <button
             onClick={() => publishMutation.mutate()}
             disabled={publishMutation.isPending}
@@ -178,34 +226,48 @@ export function EventEditorPage() {
       {activeTab === 'builder' && (
         <div className="flex-1 flex overflow-hidden">
           <SectionPalette widgets={widgets as WidgetDefinition[]} />
-          <BuilderCanvas slug={slug!} onOpenTemplates={() => setShowTemplates(true)} />
-          <PropEditor widgets={widgets as WidgetDefinition[]} slug={slug!} />
+          <BuilderCanvas slug={slug} onOpenTemplates={() => setShowTemplates(true)} />
+          <PropEditor widgets={widgets as WidgetDefinition[]} slug={slug} />
         </div>
       )}
 
       {activeTab === 'theme' && (
         <div className="flex-1 overflow-auto p-6">
-          <ThemeEditor slug={slug!} />
+          <ThemeEditor slug={slug} />
         </div>
       )}
 
       {activeTab === 'guests' && (
         <div className="flex-1 overflow-auto p-6">
-          <GuestManager slug={slug!} />
+          <GuestManager slug={slug} />
         </div>
       )}
 
       {activeTab === 'analytics' && (
         <div className="flex-1 overflow-auto p-6">
-          <AnalyticsDashboard slug={slug!} />
+          <AnalyticsDashboard slug={slug} />
         </div>
       )}
 
       {showTemplates && (
         <TemplatePickerModal
           onClose={() => setShowTemplates(false)}
+          onApplied={() => {
+            setShowTemplates(false)
+            // Auto-save immediately after template is applied
+            saveMutation.mutate()
+          }}
           eventDate={event?.eventDate}
           timezone={event?.timezone}
+        />
+      )}
+
+      {showShare && (
+        <ShareModal
+          slug={slug}
+          title={event?.title ?? slug}
+          isPublished={event?.status === 'PUBLISHED'}
+          onClose={() => setShowShare(false)}
         />
       )}
     </div>

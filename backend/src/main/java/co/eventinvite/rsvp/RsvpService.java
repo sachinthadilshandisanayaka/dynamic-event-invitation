@@ -1,7 +1,5 @@
 package co.eventinvite.rsvp;
 
-import co.eventinvite.event.EventService;
-import co.eventinvite.event.dto.EventResponse;
 import co.eventinvite.rsvp.dto.*;
 import co.eventinvite.rsvp.entity.*;
 import co.eventinvite.rsvp.repository.*;
@@ -24,7 +22,6 @@ public class RsvpService {
     private final RsvpRepository rsvpRepository;
     private final CustomFieldRepository customFieldRepository;
     private final RsvpFieldValueRepository fieldValueRepository;
-    private final EventService eventService;
 
     // ---- Guest Management ----
 
@@ -88,10 +85,7 @@ public class RsvpService {
     @Transactional
     public RsvpDto submitRsvp(UUID token, RsvpSubmitRequest req) {
         Guest guest = findGuest(token);
-        EventResponse event = eventService.getPublic(
-                findEventSlugByGuestId(guest.getEventId()));
 
-        // Check deadline if set via widget props - this is advisory only
         RsvpResponse rsvp = rsvpRepository.findByGuestId(guest.getId())
                 .orElse(RsvpResponse.builder().guestId(guest.getId()).build());
 
@@ -154,12 +148,6 @@ public class RsvpService {
     private Guest findGuest(UUID token) {
         return guestRepository.findByInviteToken(token)
                 .orElseThrow(() -> new NotFoundException("Invalid invitation token"));
-    }
-
-    private String findEventSlugByGuestId(UUID eventId) {
-        // We need to look up the event slug — use EventService via a query
-        // For now, we pass eventId and call a different method
-        return eventId.toString(); // placeholder; EventController resolves the slug
     }
 
     private GuestDto toGuestDto(Guest g) {

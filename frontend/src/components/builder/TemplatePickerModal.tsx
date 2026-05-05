@@ -61,11 +61,12 @@ function TemplateCard({ template, selected, onSelect }: {
 
 interface Props {
   onClose: () => void
+  onApplied?: () => void   // called after template is applied (for auto-save)
   eventDate?: string
   timezone?: string
 }
 
-export function TemplatePickerModal({ onClose, eventDate, timezone }: Props) {
+export function TemplatePickerModal({ onClose, onApplied, eventDate, timezone }: Props) {
   const { setSections, setTheme } = useBuilderStore()
   const [selected, setSelected] = useState<Template>(TEMPLATES[0])
   const [confirmed, setConfirmed] = useState(false)
@@ -78,7 +79,11 @@ export function TemplatePickerModal({ onClose, eventDate, timezone }: Props) {
     const sections = buildSections(selected, eventDate, timezone)
     setSections(sections)
     setTheme(selected.theme)
-    onClose()
+    if (onApplied) {
+      onApplied()
+    } else {
+      onClose()
+    }
   }
 
   return (
