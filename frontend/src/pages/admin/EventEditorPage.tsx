@@ -95,9 +95,9 @@ export function EventEditorPage() {
     }
   }, [layoutData, slug])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Initialize theme from server data (no dirty flag)
+  // Initialize theme from server data — skip if user has unsaved edits
   useEffect(() => {
-    if (themeData) initTheme(themeData)
+    if (themeData && !useBuilderStore.getState().isDirty) initTheme(themeData)
   }, [themeData])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveMutation = useMutation({
@@ -253,11 +253,6 @@ export function EventEditorPage() {
       {showTemplates && (
         <TemplatePickerModal
           onClose={() => setShowTemplates(false)}
-          onApplied={() => {
-            setShowTemplates(false)
-            // Auto-save immediately after template is applied
-            saveMutation.mutate()
-          }}
           eventDate={event?.eventDate}
           timezone={event?.timezone}
         />
