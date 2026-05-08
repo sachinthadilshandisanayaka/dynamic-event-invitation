@@ -1,16 +1,22 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { eventsApi, layoutApi, themeApi } from '../api'
 import { analyticsApi } from '../api'
 import { ThemeInjector } from '../theme/ThemeInjector'
 import { WidgetRenderer } from '../components/widgets/WidgetRenderer'
+import { LoadingScreen } from '../components/animations/LoadingScreen'
+import { ParticleSystem } from '../components/animations/ParticleSystem'
+import { ScrollReveal } from '../components/animations/ScrollReveal'
+import { getAnimationIdFromTokens, getAnimationCollection } from '../data/animationCollections'
 import type { Section } from '../types'
 
 export function EventPage() {
   const { slug } = useParams<{ slug: string }>()
   const [searchParams] = useSearchParams()
   const inviteToken = searchParams.get('t') || undefined
+
+  const [animDone, setAnimDone] = useState(false)
 
   const { data: event, isLoading: eventLoading, error } = useQuery({
     queryKey: ['public-event', slug],
@@ -30,6 +36,16 @@ export function EventPage() {
     queryFn: () => themeApi.getPublic(slug!),
     enabled: !!slug,
   })
+
+  // Determine animation collection from saved theme tokens
+  const animationId = getAnimationIdFromTokens(themeData?.tokens)
+  const collection = getAnimationCollection(animationId)
+  const hasAnimation = !!animationId
+
+  // Skip loading animation if none configured or already shown this session
+  useEffect(() => {
+    if (!hasAnimation) setAnimDone(true)
+  }, [hasAnimation])
 
   // Track page view
   useEffect(() => {
@@ -81,36 +97,58 @@ export function EventPage() {
     } catch { sections = [] }
   }
 
+  const sortedSections = [...sections].sort((a, b) => a.order - b.order)
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg, #ffffff)' }}>
       {themeData && <ThemeInjector theme={themeData} />}
 
-      {sections.length === 0 ? (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold" style={{ color: 'var(--color-text)' }}>{event.title}</h1>
-            <p className="mt-4 text-gray-500">Event page is being set up. Check back soon!</p>
-          </div>
-        </div>
-      ) : (
-        sections
-          .sort((a, b) => a.order - b.order)
-          .map((section) => (
-            <WidgetRenderer
-              key={section.id}
-              section={
-                // Inject eventDate and timezone into event-details widget
-                section.type === 'event-details'
-                  ? { ...section, props: { ...section.props, eventDate: event.eventDate, timezone: event.timezone } }
-                  : section.type === 'rsvp-form'
-                  ? section
-                  : section
-              }
-              eventSlug={slug}
-              inviteToken={inviteToken}
-            />
-          ))
+      {/* Cinematic loading screen — shown before content if animation configured */}
+      {hasAnimation && !animDone && themeData && (
+        <LoadingScreen
+          collectionId={animationId}
+          eventTitle={event.title}
+          onComplete={() => setAnimDone(true)}
+        />
       )}
+
+      {/* Ambient particle system — always visible once animation done */}
+      {hasAnimation && animDone && (
+        <ParticleSystem collection={collection} />
+      )}
+
+      {/* Main content — hidden behind loading screen until animation finishes */}
+      <div style={{
+        opacity: animDone ? 1 : 0,
+        transition: 'opacity 0.5s ease',
+      }}>
+        {sections.length === 0 ? (
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold" style={{ color: 'var(--color-text)' }}>{event.title}</h1>
+              <p className="mt-4 text-gray-500">Event page is being set up. Check back soon!</p>
+            </div>
+          </div>
+        ) : (
+          sortedSections.map((section, index) => (
+            <ScrollReveal
+              key={section.id}
+              scrollAnim={collection.scrollAnim}
+              delay={index === 0 ? 0 : Math.min(index * 80, 300)}
+            >
+              <WidgetRenderer
+                section={
+                  section.type === 'event-details'
+                    ? { ...section, props: { ...section.props, eventDate: event.eventDate, timezone: event.timezone } }
+                    : section
+                }
+                eventSlug={slug}
+                inviteToken={inviteToken}
+              />
+            </ScrollReveal>
+          ))
+        )}
+      </div>
     </div>
   )
 }

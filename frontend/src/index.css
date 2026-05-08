@@ -30,3 +30,132 @@
   font-family: inherit;
   border-radius: var(--border-radius, 8px);
 }
+
+/* ── Animation System Keyframes ─────────────────────────────── */
+
+@keyframes anim-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes anim-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes anim-fade-up {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes anim-fade-scale {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes anim-slide-left {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes anim-bloom {
+  0%   { opacity: 0; transform: scale(0.7); }
+  70%  { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes anim-curtain {
+  from { clip-path: inset(0 0 100% 0); opacity: 0.3; }
+  to   { clip-path: inset(0 0 0% 0);   opacity: 1; }
+}
+@keyframes butterfly-rise {
+  0%   { transform: translate(0, 40px) scale(0.35); opacity: 0; }
+  25%  { opacity: 1; }
+  100% { transform: translate(0, -50px) scale(1);   opacity: 1; }
+}
+@keyframes wing-beat {
+  0%,100% { transform: scaleX(1); }
+  50%      { transform: scaleX(0.25); }
+}
+@keyframes flutter-across {
+  0%   { transform: translateX(-100px) translateY(0) rotate(-4deg);   opacity: 0; }
+  6%   { opacity: 0.9; }
+  40%  { transform: translateX(38vw) translateY(-28px) rotate(3deg); }
+  60%  { transform: translateX(58vw) translateY(-52px) rotate(-4deg); }
+  94%  { opacity: 0.8; }
+  100% { transform: translateX(calc(100vw + 100px)) translateY(-18px) rotate(4deg); opacity: 0; }
+}
+@keyframes petal-fall {
+  0%   { transform: translateY(-50px) rotate(0deg)   translateX(0);    opacity: 0; }
+  8%   { opacity: 0.9; }
+  92%  { opacity: 0.6; }
+  100% { transform: translateY(110vh)  rotate(680deg) translateX(55px); opacity: 0; }
+}
+@keyframes sparkle-rise {
+  0%   { transform: translateY(0)     scale(0) rotate(0deg);   opacity: 0; }
+  18%  { transform: translateY(-18px) scale(1) rotate(45deg);  opacity: 1; }
+  78%  { transform: translateY(-75px) scale(0.7) rotate(135deg); opacity: 0.5; }
+  100% { transform: translateY(-115px) scale(0) rotate(180deg); opacity: 0; }
+}
+@keyframes blossom-drift {
+  0%   { transform: translate(0, -40px) rotate(0deg);   opacity: 0; }
+  8%   { opacity: 0.95; }
+  92%  { opacity: 0.65; }
+  100% { transform: translate(70px, 110vh) rotate(520deg); opacity: 0; }
+}
+@keyframes ring-draw {
+  from { stroke-dashoffset: 628; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes ring-slide-left  { from { transform: translateX(30px); } to { transform: translateX(-16px); } }
+@keyframes ring-slide-right { from { transform: translateX(-30px); } to { transform: translateX(16px); } }
+@keyframes branch-grow {
+  from { stroke-dashoffset: 700; opacity: 0; }
+  to   { stroke-dashoffset: 0;   opacity: 1; }
+}
+@keyframes lace-trace {
+  from { stroke-dashoffset: 1200; opacity: 0; }
+  to   { stroke-dashoffset: 0;    opacity: 0.6; }
+}
+@keyframes char-appear {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer-text {
+  0%,100% { background-position: 0% center; }
+  50%      { background-position: 100% center; }
+}
+@keyframes loading-fade-out {
+  0%   { opacity: 1; }
+  100% { opacity: 0; pointer-events: none; }
+}
+@keyframes botanical-slide-in-left {
+  from { transform: translateX(-60px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 0.6; }
+}
+@keyframes botanical-slide-in-right {
+  from { transform: translateX(60px);  opacity: 0; }
+  to   { transform: translateX(0);     opacity: 0.6; }
+}
+@keyframes envelope-bg-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes scale-in {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+@keyframes petal-curtain {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(0); }
+}
+
+/* Scroll reveal utilities — toggled by IntersectionObserver */
+.anim-scroll-target {
+  opacity: 0;
+  will-change: opacity, transform, clip-path;
+}
+.anim-scroll-target.anim-revealed {
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-duration: 0.8s;
+}
+.anim-scroll-target.anim-revealed.scroll-fade-up   { animation-name: anim-fade-up;   opacity: 1; }
+.anim-scroll-target.anim-revealed.scroll-bloom      { animation-name: anim-bloom;      opacity: 1; }
+.anim-scroll-target.anim-revealed.scroll-fade-scale { animation-name: anim-fade-scale; opacity: 1; }
+.anim-scroll-target.anim-revealed.scroll-slide-left { animation-name: anim-slide-left; opacity: 1; }
+.anim-scroll-target.anim-revealed.scroll-curtain    { animation-name: anim-curtain;    opacity: 1; }

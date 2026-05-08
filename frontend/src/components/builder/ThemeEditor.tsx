@@ -1,4 +1,6 @@
 import { useBuilderStore } from '../../store/builderStore'
+import { AnimationPicker } from '../animations/AnimationPicker'
+import { getAnimationIdFromTokens, setAnimationInTokens } from '../../data/animationCollections'
 
 const FONTS = ['Inter', 'Playfair Display', 'Lato', 'Poppins', 'Merriweather', 'Roboto', 'Open Sans', 'Montserrat']
 const RADIUS = ['0px', '4px', '8px', '12px', '16px', '24px', '9999px']
@@ -27,7 +29,7 @@ function ColorField({ label, value, onChange }: ColorFieldProps) {
   )
 }
 
-export function ThemeEditor({ slug }: { slug: string }) {
+export function ThemeEditor({ slug: _slug }: { slug: string }) {
   const { theme, setTheme } = useBuilderStore()
 
   const t = theme as {
@@ -39,11 +41,19 @@ export function ThemeEditor({ slug }: { slug: string }) {
     fontHeading?: string
     fontBody?: string
     borderRadius?: string
+    tokens?: Record<string, string> | string
+  }
+
+  const selectedAnimation = getAnimationIdFromTokens(t.tokens)
+
+  const handleAnimationChange = (id: string) => {
+    const updatedTokens = setAnimationInTokens(t.tokens, id)
+    setTheme({ tokens: JSON.parse(updatedTokens) as Record<string, string> })
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-xl font-bold text-gray-900 mb-6">Theme Settings</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-6">Theme &amp; Animations</h2>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
         <h3 className="font-semibold text-gray-800 mb-4">Colors</h3>
@@ -133,6 +143,24 @@ export function ThemeEditor({ slug }: { slug: string }) {
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Animation Collections */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mt-6">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-semibold text-gray-800">🎬 Loading Animation</h3>
+          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+            Guests see this when they open the page
+          </span>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          Choose a cinematic intro that plays before your event content reveals.
+          Click <strong>▶</strong> on any card to preview it full-screen.
+        </p>
+        <AnimationPicker
+          selected={selectedAnimation}
+          onChange={handleAnimationChange}
+        />
       </div>
     </div>
   )

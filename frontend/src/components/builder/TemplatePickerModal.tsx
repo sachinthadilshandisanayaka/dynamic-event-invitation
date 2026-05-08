@@ -1,7 +1,17 @@
 import { useState } from 'react'
-import { X, Check } from 'lucide-react'
+import { X, Check, Sparkles } from 'lucide-react'
 import { TEMPLATES, buildSections, type Template } from '../../data/templates'
 import { useBuilderStore } from '../../store/builderStore'
+import { ANIMATION_COLLECTIONS, setAnimationInTokens } from '../../data/animationCollections'
+
+// Best animation match per template id
+const TEMPLATE_ANIMATION_MAP: Record<string, string> = {
+  wedding:   'butterfly-garden',
+  corporate: 'minimalist-lace',
+  birthday:  'rose-petals',
+  gala:      'golden-rings',
+  minimal:   'minimalist-lace',
+}
 
 function TemplateCard({ template, selected, onSelect }: {
   template: Template
@@ -69,9 +79,17 @@ export function TemplatePickerModal({ onClose, eventDate, timezone }: Props) {
   const { setSections, setTheme } = useBuilderStore()
   const [selected, setSelected] = useState<Template>(TEMPLATES[0])
 
+  const suggestedAnimId = TEMPLATE_ANIMATION_MAP[selected.id] ?? ''
+  const suggestedAnim = ANIMATION_COLLECTIONS.find((c) => c.id === suggestedAnimId)
+
   const applyTemplate = () => {
     setSections(buildSections(selected, eventDate, timezone))
-    setTheme(selected.theme)
+    // Merge suggested animation into theme tokens
+    const baseTheme = selected.theme as Record<string, unknown>
+    const updatedTokens = suggestedAnimId
+      ? setAnimationInTokens(baseTheme.tokens as string | undefined, suggestedAnimId)
+      : undefined
+    setTheme(updatedTokens ? { ...selected.theme, tokens: JSON.parse(updatedTokens) } : selected.theme)
     onClose()
   }
 
@@ -117,6 +135,15 @@ export function TemplatePickerModal({ onClose, eventDate, timezone }: Props) {
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-100 shrink-0">
+          {suggestedAnim && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-purple-50 border border-purple-100 rounded-xl">
+              <Sparkles size={13} className="text-purple-500 shrink-0" />
+              <p className="text-xs text-purple-700">
+                <strong>{suggestedAnim.emoji} {suggestedAnim.name}</strong> animation will be applied automatically.
+                You can change it in the <em>Theme</em> tab.
+              </p>
+            </div>
+          )}
           <div className="flex gap-3">
             <button onClick={onClose}
               className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm">
