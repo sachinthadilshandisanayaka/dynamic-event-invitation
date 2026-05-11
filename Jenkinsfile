@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        PROJECT_DIR = '/root/event-invitation-system'
-        BRANCH      = 'release_v1'
+        PROJECT_DIR  = '/root/event-invitation-system'
+        BRANCH       = 'release_v1'
         COMPOSE_FILE = 'docker-compose.yml'
     }
 
@@ -16,6 +16,22 @@ pipeline {
                     git fetch origin
                     git checkout ${BRANCH}
                     git pull origin ${BRANCH}
+                """
+            }
+        }
+
+        stage('Validate Environment') {
+            steps {
+                sh """
+                    if [ ! -f ${PROJECT_DIR}/.env ]; then
+                        echo '================================================================'
+                        echo ' ERROR: .env file not found at ${PROJECT_DIR}/.env'
+                        echo ' Copy .env.example to .env and fill in the production values.'
+                        echo ' Required: VITE_API_URL, CORS_ALLOWED_ORIGINS, JWT_SECRET'
+                        echo '================================================================'
+                        exit 1
+                    fi
+                    echo '.env file found.'
                 """
             }
         }
@@ -57,8 +73,8 @@ pipeline {
             echo '=========================================='
         }
         failure {
-            echo 'Deployment FAILED. Showing last 80 log lines:'
-            sh "cd ${PROJECT_DIR} && docker compose logs --tail=80 || true"
+            echo 'Deployment FAILED. Showing last 100 log lines per service:'
+            sh "cd ${PROJECT_DIR} && docker compose logs --tail=100 || true"
         }
         always {
             sh "cd ${PROJECT_DIR} && docker compose ps || true"
