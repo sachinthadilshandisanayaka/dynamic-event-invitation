@@ -16,7 +16,7 @@ export function RichTextWidget({
   padding = 'medium',
 }: Props) {
   return (
-    <div className={PADDING[padding] || PADDING.medium} style={{ backgroundColor: bgColor, color: textColor }}>
+    <div className={PADDING[padding] || PADDING.medium} style={{ fontFamily: 'var(--font-heading, inherit)', backgroundColor: bgColor, color: textColor }}>
       <div
         className="max-w-3xl mx-auto prose prose-lg"
         style={{ textAlign: align, fontFamily: 'var(--font-body, inherit)', color: textColor }}

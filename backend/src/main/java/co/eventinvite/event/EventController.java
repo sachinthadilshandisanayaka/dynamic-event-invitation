@@ -4,6 +4,7 @@ import co.eventinvite.auth.entity.User;
 import co.eventinvite.auth.repository.UserRepository;
 import co.eventinvite.event.dto.*;
 import co.eventinvite.shared.ApiResponse;
+import co.eventinvite.shared.RestPage;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,7 +22,7 @@ public class EventController {
     private final UserRepository userRepository;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<EventResponse>>> list(
+    public ResponseEntity<ApiResponse<RestPage<EventResponse>>> list(
             @AuthenticationPrincipal UserDetails principal,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {

@@ -4,6 +4,7 @@ import co.eventinvite.event.dto.*;
 import co.eventinvite.event.entity.*;
 import co.eventinvite.event.repository.EventRepository;
 import co.eventinvite.layout.LayoutService;
+import co.eventinvite.shared.RestPage;
 import co.eventinvite.shared.exception.*;
 import co.eventinvite.theme.ThemeService;
 import lombok.RequiredArgsConstructor;
@@ -115,9 +116,9 @@ public class EventService {
     }
 
     @Cacheable(value = "events", key = "#orgId + ':' + #page + ':' + #size")
-    public Page<EventResponse> list(UUID orgId, int page, int size) {
-        return eventRepository.findByOrgIdOrderByCreatedAtDesc(
-                orgId, PageRequest.of(page, size)).map(this::toResponse);
+    public RestPage<EventResponse> list(UUID orgId, int page, int size) {
+        return new RestPage<>(eventRepository.findByOrgIdOrderByCreatedAtDesc(
+                orgId, PageRequest.of(page, size)).map(this::toResponse));
     }
 
     @Caching(evict = {

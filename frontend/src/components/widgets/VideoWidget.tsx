@@ -20,7 +20,7 @@ export function VideoWidget({ title, embedUrl = '', autoplay = false }: Props) {
   const embed = toEmbedUrl(embedUrl)
 
   return (
-    <div className="py-10 px-6 bg-gray-900">
+    <div className="py-10 px-6 bg-gray-900" style={{ fontFamily: 'var(--font-heading, inherit)' }}>
       <div className="max-w-4xl mx-auto">
         {title && (
           <h3 className="text-xl font-bold text-white text-center mb-5" style={{ fontFamily: 'var(--font-heading)' }}>

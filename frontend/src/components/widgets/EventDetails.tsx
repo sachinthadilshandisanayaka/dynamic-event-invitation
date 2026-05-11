@@ -8,7 +8,6 @@ interface Props {
   showMap?: boolean
   bgColor?: string
   textColor?: string
-  // These come from parent event data when rendered on public page
   eventDate?: string
   timezone?: string
 }
@@ -37,58 +36,89 @@ export function EventDetails({
 
   const mapsQuery = encodeURIComponent([venueName, address].filter(Boolean).join(', '))
   const googleMapsUrl = `https://maps.google.com/?q=${mapsQuery}`
-  const osmUrl = `https://www.openstreetmap.org/search?query=${mapsQuery}`
+  const osmUrl        = `https://www.openstreetmap.org/search?query=${mapsQuery}`
 
   return (
-    <div className="py-12 px-6" style={{ backgroundColor: bgColor, color: textColor }}>
-      <div className="max-w-2xl mx-auto grid md:grid-cols-2 gap-8">
-        {/* Date */}
-        <div className="flex gap-4">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-            style={{ backgroundColor: 'var(--color-primary, #6366f1)', opacity: 0.12 }}>
-            <Calendar size={24} style={{ color: 'var(--color-primary, #6366f1)', opacity: 1 / 0.12 }} />
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-widest opacity-60 mb-1">{dateLabel}</p>
-            {formattedDate ? (
-              <>
-                <p className="font-semibold text-lg leading-tight">{formattedDate}</p>
-                <p className="opacity-70 mt-0.5">{formattedTime}{timezone && ` · ${timezone}`}</p>
-              </>
-            ) : (
-              <p className="opacity-50 italic text-sm">Date not set</p>
-            )}
-          </div>
-        </div>
+    <div
+      className="px-fluid flex flex-col justify-center"
+      style={{
+        fontFamily: 'var(--font-heading, inherit)',
+        backgroundColor: bgColor,
+        color: textColor,
+        paddingTop: 'clamp(4rem, 10vw, 6rem)',
+        paddingBottom: 'clamp(4rem, 10vw, 6rem)',
+      }}
+    >
+      <div className="container-fluid max-w-2xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 sm:gap-10">
 
-        {/* Location */}
-        {(venueName || address) && (
+          {/* ── Date ── */}
           <div className="flex gap-4">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-              style={{ backgroundColor: 'var(--color-accent, #f59e0b)', opacity: 0.12 }}>
-              <MapPin size={24} style={{ color: 'var(--color-accent, #f59e0b)', opacity: 1 / 0.12 }} />
+            <div
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0"
+              style={{ backgroundColor: 'color-mix(in srgb, var(--color-accent, #6366f1) 14%, transparent)' }}
+            >
+              <Calendar size={22} style={{ color: 'var(--color-accent, #6366f1)' }} />
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-widest opacity-60 mb-1">{locationLabel}</p>
-              {venueName && <p className="font-semibold text-lg leading-tight">{venueName}</p>}
-              {address && <p className="opacity-70 mt-0.5 text-sm">{address}</p>}
-              {showMap && mapsQuery && (
-                <div className="flex gap-3 mt-3">
-                  <a href={googleMapsUrl} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium hover:bg-white/50 transition-colors"
-                    style={{ borderColor: 'currentColor', opacity: 0.7 }}>
-                    <Navigation size={12} /> Google Maps
-                  </a>
-                  <a href={osmUrl} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium hover:bg-white/50 transition-colors"
-                    style={{ borderColor: 'currentColor', opacity: 0.7 }}>
-                    <MapPin size={12} /> OpenStreetMap
-                  </a>
-                </div>
+            <div className="min-w-0">
+              <p className="text-fluid-xs uppercase tracking-widest opacity-60 mb-1">{dateLabel}</p>
+              {formattedDate ? (
+                <>
+                  <p className="text-fluid-base font-semibold leading-snug">{formattedDate}</p>
+                  <p className="text-fluid-sm opacity-70 mt-0.5">
+                    {formattedTime}{timezone && ` · ${timezone}`}
+                  </p>
+                </>
+              ) : (
+                <p className="text-fluid-sm opacity-50 italic">Date not set</p>
               )}
             </div>
           </div>
-        )}
+
+          {/* ── Location ── */}
+          {(venueName || address) && (
+            <div className="flex gap-4">
+              <div
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--color-accent, #f59e0b) 14%, transparent)' }}
+              >
+                <MapPin size={22} style={{ color: 'var(--color-accent, #f59e0b)' }} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-fluid-xs uppercase tracking-widest opacity-60 mb-1">{locationLabel}</p>
+                {venueName && (
+                  <p className="text-fluid-base font-semibold leading-snug">{venueName}</p>
+                )}
+                {address && (
+                  <p className="text-fluid-sm opacity-70 mt-0.5 break-words">{address}</p>
+                )}
+                {showMap && mapsQuery && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-fluid-xs px-3 py-1.5 rounded-full border font-medium hover:bg-white/50 transition-colors"
+                      style={{ borderColor: 'currentColor', opacity: 0.72 }}
+                    >
+                      <Navigation size={11} /> Google Maps
+                    </a>
+                    <a
+                      href={osmUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-fluid-xs px-3 py-1.5 rounded-full border font-medium hover:bg-white/50 transition-colors"
+                      style={{ borderColor: 'currentColor', opacity: 0.72 }}
+                    >
+                      <MapPin size={11} /> OpenStreetMap
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
     </div>
   )
