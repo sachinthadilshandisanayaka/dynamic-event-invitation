@@ -57,8 +57,9 @@ pipeline {
         stage('Health Check') {
             steps {
                 sh 'sleep 40'
-                sh 'curl -sf http://localhost:8090/api/actuator/health | grep -q \'"status":"UP"\''
-                sh 'curl -sf -o /dev/null -w "%{http_code}" http://localhost:8091 | grep -q 200'
+                // Jenkins runs in its own container — use Docker bridge gateway (172.17.0.1) to reach host ports
+                sh 'curl -sf http://172.17.0.1:8090/api/actuator/health | grep -q \'"status":"UP"\''
+                sh 'curl -sf -o /dev/null -w "%{http_code}" http://172.17.0.1:8091 | grep -q 200'
                 echo 'All health checks passed.'
             }
         }
