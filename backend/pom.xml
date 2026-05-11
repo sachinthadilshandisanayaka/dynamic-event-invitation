@@ -19,6 +19,7 @@
 
     <properties>
         <java.version>21</java.version>
+        <lombok.version>1.18.42</lombok.version>
         <minio.version>8.5.9</minio.version>
     </properties>
 
@@ -98,10 +99,11 @@
             <version>${minio.version}</version>
         </dependency>
 
-        <!-- Lombok -->
+        <!-- Lombok — pinned to 1.18.42 for Java 24 compatibility -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
 
@@ -140,6 +142,21 @@
 
     <build>
         <plugins>
+            <!-- Explicit Lombok annotation processor path — fixes "cannot find symbol"
+                 when building from clean on Java 21 without a pre-existing target/ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

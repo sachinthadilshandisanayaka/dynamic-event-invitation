@@ -1,16 +1,26 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { eventsApi, layoutApi, themeApi } from '../api'
 import { analyticsApi } from '../api'
+import { ensureGoogleFontsForSections } from '../lib/googleFonts'
 import { ThemeInjector } from '../theme/ThemeInjector'
+import { SectionDecorationLayer } from '../components/theme/SectionDecorationLayer'
 import { WidgetRenderer } from '../components/widgets/WidgetRenderer'
+import { LoadingScreen } from '../components/animations/LoadingScreen'
+import { ParticleSystem } from '../components/animations/ParticleSystem'
+import { ScrollReveal } from '../components/animations/ScrollReveal'
+import { WeddingEnvelopeExperience } from '../components/wedding-envelope/WeddingEnvelopeExperience'
+import { getThemeIdFromTokens, getTheme } from '../data/themeRegistry'
+import { getAnimationIdFromTokens, getAnimationCollection } from '../data/animationCollections'
 import type { Section } from '../types'
 
 export function EventPage() {
   const { slug } = useParams<{ slug: string }>()
   const [searchParams] = useSearchParams()
   const inviteToken = searchParams.get('t') || undefined
+
+  const [animDone, setAnimDone] = useState(false)
 
   const { data: event, isLoading: eventLoading, error } = useQuery({
     queryKey: ['public-event', slug],
@@ -25,11 +35,65 @@ export function EventPage() {
     enabled: !!slug,
   })
 
-  const { data: themeData } = useQuery({
+  const { data: themeData, isLoading: themeLoading } = useQuery({
     queryKey: ['public-theme', slug],
     queryFn: () => themeApi.getPublic(slug!),
     enabled: !!slug,
   })
+
+  // ── Theme resolution (new registry-first approach) ───────────────────────
+  // Priority: __themeId from registry → __animation legacy fallback → none
+  const registryThemeId = getThemeIdFromTokens(themeData?.tokens)
+  const registryTheme   = registryThemeId ? getTheme(registryThemeId) : null
+
+  // Resolve animationId: registry theme overrides legacy __animation token
+  const legacyAnimId  = getAnimationIdFromTokens(themeData?.tokens)
+  const animationId   = registryTheme?.animationId ?? legacyAnimId
+  const collection    = getAnimationCollection(animationId)
+  const hasAnimation  = !!animationId
+
+  // Whether the entrance uses the envelope experience or a loading screen.
+  // Driven by theme registry — no more hardcoded 'butterfly-garden' checks.
+  const useEnvelopeEntrance = registryTheme
+    ? ['theme_wedding_floral_blue', 'theme_wedding_dark_dramatic', 'theme_wedding_minimal_ivory']
+        .includes(registryTheme.id)
+    : animationId === 'butterfly-garden'  // legacy fallback
+
+  // Per-section decoration rules from the registry theme
+  const sectionDecorations = registryTheme?.sectionDecorations ?? []
+
+  // Parse sections early so all effects below can reference sortedSections
+  const sortedSections = (() => {
+    if (!layoutData?.sections) return []
+    try {
+      const raw = typeof layoutData.sections === 'string'
+        ? JSON.parse(layoutData.sections)
+        : layoutData.sections
+      return ([...raw] as Section[]).sort((a, b) => a.order - b.order)
+    } catch { return [] }
+  })()
+
+  // Skip animation only after theme finishes loading
+  useEffect(() => {
+    if (!themeLoading && !hasAnimation) setAnimDone(true)
+  }, [hasAnimation, themeLoading])
+
+  // Load any Google Fonts referenced in section props
+  useEffect(() => {
+    if (sortedSections.length > 0) ensureGoogleFontsForSections(sortedSections)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layoutData])
+
+  // Scroll-snap: only the hero snaps; all other sections scroll freely.
+  useEffect(() => {
+    if (!animDone) return
+    const hasHero = sortedSections.some((s) => s.type === 'hero')
+    if (!hasHero) return
+    const html = document.documentElement
+    html.style.scrollSnapType = 'y proximity'
+    return () => { html.style.scrollSnapType = '' }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animDone, layoutData])
 
   // Track page view
   useEffect(() => {
@@ -38,7 +102,7 @@ export function EventPage() {
     }
   }, [slug, event, inviteToken])
 
-  // Set meta tags for SEO / social sharing
+  // SEO / social meta tags
   useEffect(() => {
     if (event) {
       document.title = event.ogTitle || event.title || 'Event Invitation'
@@ -49,12 +113,13 @@ export function EventPage() {
     }
   }, [event])
 
+  // ── Loading state ─────────────────────────────────────────────────────────
   if (eventLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="space-y-3 text-center">
-          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
-          <p className="text-gray-500 text-sm">Loading event...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-stone-200 border-t-stone-500 rounded-full animate-spin" />
+          <p className="text-stone-400 text-sm tracking-wide">Loading invitation…</p>
         </div>
       </div>
     )
@@ -62,55 +127,198 @@ export function EventPage() {
 
   if (error || !event) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md px-6">
-          <div className="text-6xl mb-4">😕</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Event Not Found</h1>
-          <p className="text-gray-500">This event link is either invalid or the event has not been published yet.</p>
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 px-4">
+        <div className="text-center max-w-sm">
+          <div className="text-5xl mb-4">📮</div>
+          <h1 className="text-xl font-semibold text-stone-800 mb-2">Invitation Not Found</h1>
+          <p className="text-stone-500 text-sm">This link may be invalid or the event is not yet published.</p>
         </div>
       </div>
     )
   }
 
-  let sections: Section[] = []
-  if (layoutData?.sections) {
-    try {
-      sections = typeof layoutData.sections === 'string'
-        ? JSON.parse(layoutData.sections)
-        : layoutData.sections
-    } catch { sections = [] }
-  }
+  // ── Event date formatted for entrance experience ──────────────────────────
+  const formattedDate = event.eventDate
+    ? new Date(event.eventDate).toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      })
+    : undefined
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg, #ffffff)' }}>
+    <div
+      className="min-h-screen relative"
+      style={{ backgroundColor: 'var(--color-bg, #ffffff)' }}
+    >
+      {/* ── Theme CSS vars injection ── */}
       {themeData && <ThemeInjector theme={themeData} />}
 
-      {sections.length === 0 ? (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold" style={{ color: 'var(--color-text)' }}>{event.title}</h1>
-            <p className="mt-4 text-gray-500">Event page is being set up. Check back soon!</p>
-          </div>
-        </div>
-      ) : (
-        sections
-          .sort((a, b) => a.order - b.order)
-          .map((section) => (
-            <WidgetRenderer
-              key={section.id}
-              section={
-                // Inject eventDate and timezone into event-details widget
-                section.type === 'event-details'
-                  ? { ...section, props: { ...section.props, eventDate: event.eventDate, timezone: event.timezone } }
-                  : section.type === 'rsvp-form'
-                  ? section
-                  : section
-              }
-              eventSlug={slug}
-              inviteToken={inviteToken}
-            />
-          ))
+      {/* ── Entrance: envelope experience (wedding themes) ── */}
+      {hasAnimation && !animDone && useEnvelopeEntrance && (
+        <WeddingEnvelopeExperience
+          onComplete={() => setAnimDone(true)}
+          eventTitle={event.title}
+          eventDate={formattedDate}
+          eventLocation={event.description}
+          coupleName={event.title}
+        />
       )}
+
+      {/* ── Entrance: cinematic loading screen (all other animations) ── */}
+      {hasAnimation && !animDone && !useEnvelopeEntrance && themeData && (
+        <LoadingScreen
+          collectionId={animationId}
+          eventTitle={event.title}
+          onComplete={() => setAnimDone(true)}
+        />
+      )}
+
+      {/* ── Ambient particle system — after animation done ── */}
+      {hasAnimation && animDone && (
+        <ParticleSystem collection={collection} />
+      )}
+
+      {/* ── Main invitation content ── */}
+      <div
+        style={{
+          opacity: animDone ? 1 : 0,
+          transition: 'opacity 0.6s ease',
+          position: 'relative',
+          zIndex: 10,
+        }}
+      >
+        {sortedSections.length === 0 ? (
+          <div
+            style={{
+              minHeight: '100dvh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem',
+            }}
+          >
+            <div style={{ textAlign: 'center' }}>
+              <h1
+                className="text-3xl sm:text-4xl md:text-5xl font-bold"
+                style={{ color: 'var(--color-text, #1a1a1a)' }}
+              >
+                {event.title}
+              </h1>
+              <p className="mt-4 text-stone-400 text-sm">
+                Event page is being set up. Check back soon!
+              </p>
+            </div>
+          </div>
+        ) : (
+          sortedSections.map((section, index) => {
+            const isHero    = section.type === 'hero'
+            const isSpacer  = section.type === 'spacer'
+            const bgImage   = section.props.bgImage   as string | undefined
+            const bgColor   = section.props.bgColor   as string | undefined
+            const fontFamily = section.props.fontFamily as string | undefined
+            const textColor  = section.props.textColor  as string | undefined
+            const bgOpacity  = (section.props.bgOverlay as number) ?? 1.0
+
+            // Per-type max-widths tuned for readability and visual balance
+            const CONTENT_MAX: Record<string, string> = {
+              'event-details': '800px',
+              countdown:       '760px',
+              agenda:          '740px',
+              'rsvp-form':     '540px',
+              gallery:         '1140px',
+              'rich-text':     '740px',
+              video:           '900px',
+              map:             '860px',
+              spacer:          '100%',
+            }
+            const maxWidth = isHero ? '100%' : (CONTENT_MAX[section.type] ?? '820px')
+
+            const widgetSection = (() => {
+              let s = section
+              if (section.type === 'event-details') {
+                s = { ...s, props: { ...s.props, eventDate: event.eventDate, timezone: event.timezone } }
+              }
+              // When a section bgImage is set, make the widget background transparent
+              // so the image layer behind it shows through.
+              if (bgImage && !isHero) {
+                s = { ...s, props: { ...s.props, bgColor: 'transparent' } }
+              }
+              return s
+            })()
+
+            return (
+              <div
+                key={section.id}
+                style={{
+                  // ── Hero: immersive full-screen slide that snaps into view ──
+                  // ── All others: natural height, scroll freely ──────────────
+                  ...(isHero ? {
+                    minHeight: '100dvh',
+                    scrollSnapAlign: 'start',
+                    scrollSnapStop: 'normal',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                  } : isSpacer ? {} : {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }),
+                  position: 'relative',
+                  overflow: 'hidden',
+                  // Background color on the section itself (not the widget)
+                  // so it fills the full section width even for narrow-content sections.
+                  ...(!isHero && bgColor && !bgImage ? { backgroundColor: bgColor } : {}),
+                  // Per-section font / color CSS vars cascade into all child widgets
+                  ...(fontFamily ? { '--font-heading': fontFamily, '--font-body': fontFamily } as React.CSSProperties : {}),
+                  ...(textColor  ? { '--color-text': textColor } as React.CSSProperties : {}),
+                }}
+              >
+                {/* Background image — opacity-controlled layer behind the widget */}
+                {bgImage && (
+                  <div style={{
+                    position: 'absolute', inset: 0, zIndex: 0,
+                    backgroundImage: `url(${bgImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    opacity: bgOpacity,
+                    pointerEvents: 'none',
+                  }} />
+                )}
+
+                {/* Theme decorations (wedding floral corners etc.) */}
+                {animDone && sectionDecorations.length > 0 && (
+                  <SectionDecorationLayer
+                    rules={sectionDecorations}
+                    sectionIndex={index}
+                    totalSections={sortedSections.length}
+                  />
+                )}
+
+                {/* Content — constrained width, horizontally centered */}
+                <div style={{
+                  position: 'relative',
+                  zIndex: 10,
+                  width: '100%',
+                  maxWidth,
+                  margin: '0 auto',
+                }}>
+                  <ScrollReveal
+                    scrollAnim={collection.scrollAnim}
+                    delay={index === 0 ? 0 : Math.min(index * 80, 300)}
+                  >
+                    <WidgetRenderer
+                      section={widgetSection}
+                      eventSlug={slug}
+                      inviteToken={inviteToken}
+                    />
+                  </ScrollReveal>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
     </div>
   )
 }
@@ -119,8 +327,7 @@ function setMeta(name: string, content: string) {
   let el = document.querySelector(`meta[name="${name}"], meta[property="${name}"]`) as HTMLMetaElement | null
   if (!el) {
     el = document.createElement('meta')
-    const attr = name.startsWith('og:') ? 'property' : 'name'
-    el.setAttribute(attr, name)
+    el.setAttribute(name.startsWith('og:') ? 'property' : 'name', name)
     document.head.appendChild(el)
   }
   el.setAttribute('content', content)

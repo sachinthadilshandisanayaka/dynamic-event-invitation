@@ -30,15 +30,19 @@ function calcTimeLeft(targetDate: string): TimeLeft {
 function Digit({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex flex-col items-center">
-      <div className="relative">
-        <div
-          className="w-20 h-20 md:w-28 md:h-28 flex items-center justify-center rounded-2xl text-3xl md:text-5xl font-bold shadow-lg"
-          style={{ backgroundColor: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)' }}
-        >
-          {String(value).padStart(2, '0')}
-        </div>
+      <div
+        className="flex items-center justify-center rounded-2xl font-bold shadow-lg"
+        style={{
+          width: 'clamp(60px, 14vw, 112px)',
+          height: 'clamp(60px, 14vw, 112px)',
+          fontSize: 'clamp(1.5rem, 5vw, 3rem)',
+          backgroundColor: 'rgba(255,255,255,0.15)',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+        {String(value).padStart(2, '0')}
       </div>
-      <span className="mt-2 text-xs md:text-sm uppercase tracking-widest opacity-80">{label}</span>
+      <span className="mt-2 text-fluid-xs uppercase tracking-widest opacity-80">{label}</span>
     </div>
   )
 }
@@ -60,8 +64,14 @@ export function CountdownTimer({
 
   return (
     <div
-      className="py-16 px-6 flex flex-col items-center justify-center"
-      style={{ backgroundColor: bgColor, color: textColor }}
+      className="px-fluid flex flex-col items-center justify-center"
+      style={{
+        fontFamily: 'var(--font-heading, inherit)',
+        backgroundColor: bgColor,
+        color: textColor,
+        paddingTop: 'clamp(4rem, 10vw, 6rem)',
+        paddingBottom: 'clamp(4rem, 10vw, 6rem)',
+      }}
     >
       {timeLeft.state === 'ended' ? (
         <div className="text-center">
@@ -73,7 +83,7 @@ export function CountdownTimer({
           {!targetDate && (
             <p className="text-sm opacity-60 mb-8">Set a target date in the editor</p>
           )}
-          <div className="flex items-center gap-4 md:gap-8">
+          <div className="flex items-center gap-[clamp(0.5rem,3vw,2rem)]">
             <Digit value={timeLeft.days} label="Days" />
             <span className="text-4xl font-bold opacity-60 mb-6">:</span>
             <Digit value={timeLeft.hours} label="Hours" />

@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   PointerSensor, useSensor, useSensors, closestCenter,
@@ -11,6 +11,7 @@ import { WidgetRenderer } from '../widgets/WidgetRenderer'
 import type { Section } from '../../types'
 import { GripVertical, Trash2, Copy } from 'lucide-react'
 import { useState } from 'react'
+import { ensureGoogleFontsForSections } from '../../lib/googleFonts'
 
 function SortableSection({ section, isSelected, onSelect, onDelete, onDuplicate }: {
   section: Section
@@ -55,8 +56,19 @@ function SortableSection({ section, isSelected, onSelect, onDelete, onDuplicate 
         </button>
       </div>
 
-      {/* Widget preview */}
-      <div className="pointer-events-none select-none">
+      {/* Widget preview — CSS vars mirror what EventPage sets on the section wrapper */}
+      <div
+        className="pointer-events-none select-none"
+        style={{
+          ...(section.props.fontFamily ? {
+            '--font-heading': section.props.fontFamily as string,
+            '--font-body':    section.props.fontFamily as string,
+          } as React.CSSProperties : {}),
+          ...(section.props.textColor ? {
+            '--color-text': section.props.textColor as string,
+          } as React.CSSProperties : {}),
+        }}
+      >
         <WidgetRenderer section={section} preview />
       </div>
     </div>
@@ -66,6 +78,9 @@ function SortableSection({ section, isSelected, onSelect, onDelete, onDuplicate 
 export function BuilderCanvas({ slug, onOpenTemplates }: { slug: string; onOpenTemplates?: () => void }) {
   const { sections, selectedId, selectSection, removeSection, reorderSections, addSection } = useBuilderStore()
   const [activeSection, setActiveSection] = useState<Section | null>(null)
+
+  // Pre-load all Google Fonts used in the current layout
+  useEffect(() => { ensureGoogleFontsForSections(sections) }, [sections])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const handleDragStart = (event: DragStartEvent) => {

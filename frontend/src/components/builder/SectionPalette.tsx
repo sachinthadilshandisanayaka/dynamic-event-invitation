@@ -21,7 +21,7 @@ const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
   'event-details': { dateLabel: 'Date & Time', locationLabel: 'Venue', venueName: '', address: '', showMap: true },
   map: { venueName: 'Event Venue', address: '', latitude: null, longitude: null, googleMapsUrl: '', zoom: 15, height: 400 },
   'rsvp-form': { title: 'Will you attend?', maxPlusOnes: 0, showMessage: false, bgColor: '#f0fdf4', buttonColor: '#16a34a' },
-  gallery: { title: 'Gallery', images: [], columns: '3', rounded: true },
+  gallery: { title: 'Gallery', images: [], layout: 'grid', columns: '3', gap: 'normal', rounded: true, aspectRatio: 'square', bgColor: '#ffffff', textColor: '#111827' },
   agenda: { title: 'Schedule', items: [], bgColor: '#ffffff', textColor: '#111827' },
   'rich-text': { content: '<p>Add your text here...</p>', align: 'center', bgColor: '#ffffff', textColor: '#111827', padding: 'medium' },
   video: { title: '', embedUrl: '', autoplay: false },

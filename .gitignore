@@ -2,6 +2,7 @@
 frontend/dist/
 frontend/node_modules/
 backend/target/
+docs/
 
 # Environment / secrets
 .env
@@ -35,6 +36,9 @@ backend/mvnw.cmd
 *.swo
 .DS_Store
 Thumbs.db
+
+# Report
+*.md
 
 # Docker volumes (local dev)
 postgres_data/
