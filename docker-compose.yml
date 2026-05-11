@@ -44,15 +44,15 @@ services:
       SPRING_DATASOURCE_PASSWORD: eventinvite2024
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://localhost:9000}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://95.216.188.135:9000}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-eventinvite}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-EventInvite2024!}
       MINIO_BUCKET: event-media
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://95.216.188.135:9000}
       JWT_SECRET: ${JWT_SECRET:-YourSuperSecretJwtKeyThatIsAtLeast256BitsLong_ChangeInProduction!}
       JWT_EXPIRATION_MS: 900000
       JWT_REFRESH_EXPIRATION_MS: 604800000
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://95.216.188.135:8091}
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,8 +70,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8090}
-        VITE_MINIO_PUBLIC_URL: ${VITE_MINIO_PUBLIC_URL:-http://localhost:9000}
+        VITE_API_URL: ${VITE_API_URL:-http://95.216.188.135:8090}
+        VITE_MINIO_PUBLIC_URL: ${VITE_MINIO_PUBLIC_URL:-http://95.216.188.135:9000}
     container_name: event-frontend
     ports:
       - "8091:80"
