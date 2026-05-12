@@ -58,8 +58,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: eventinvite2024
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      # MINIO_ENDPOINT must be the public domain so presigned URLs contain the correct
-      # host for AWS Signature v4 verification when the browser uploads directly to MinIO.
+      # MINIO_ENDPOINT must be the public domain so presigned upload URLs contain
+      # the correct host for AWS Signature v4 verification in the browser PUT.
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-https://eventinvitation.freedynamicdns.net}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-eventinvite}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-EventInvite2024!}
@@ -89,28 +89,13 @@ services:
         VITE_API_URL: ${VITE_API_URL:-https://eventinvitation.freedynamicdns.net}
         VITE_MINIO_PUBLIC_URL: ${VITE_MINIO_PUBLIC_URL:-https://eventinvitation.freedynamicdns.net}
     container_name: event-frontend
-    restart: unless-stopped
-
-  caddy:
-    image: caddy:2-alpine
-    container_name: event-caddy
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - "8091:80"
     depends_on:
       - backend
-      - frontend
-      - minio
     restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
   minio_data:
-  caddy_data:
-  caddy_config:

@@ -56,12 +56,10 @@ pipeline {
 
         stage('Health Check') {
             steps {
-                // Wait for Caddy to obtain the Let's Encrypt certificate (first run) and
-                // for the backend to finish Spring Boot startup.
-                sh 'sleep 60'
-                // Check backend health through Caddy (HTTPS — the real production path)
-                sh 'curl -sf https://eventinvitation.freedynamicdns.net/api/actuator/health | grep -q \'"status":"UP"\''
-                // Check frontend through Caddy
+                sh 'sleep 40'
+                // Backend: check via bridge gateway (port 8090 published on host)
+                sh 'curl -sf http://172.17.0.1:8090/api/actuator/health | grep -q \'"status":"UP"\''
+                // Frontend: check through the domain (tests the full HTTPS path via nginx)
                 sh 'curl -sf -o /dev/null -w "%{http_code}" https://eventinvitation.freedynamicdns.net | grep -q 200'
                 echo 'All health checks passed.'
             }
