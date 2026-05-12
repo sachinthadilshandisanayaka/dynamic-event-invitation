@@ -26,11 +26,17 @@ export function ThemeInjector({ theme }: Props) {
       if (theme.borderRadius)   tokens['--border-radius']    = theme.borderRadius
     }
 
-    // When a registry theme is selected, merge its cssVars underneath token overrides
+    // When a registry theme is selected, its cssVars are authoritative for styling.
+    // Explicit token overrides (--color-*, --font-*) are ignored so stale DB values
+    // from before the theme was applied cannot bleed through.
     const themeId = tokens['__themeId']
     if (themeId) {
       const registryTheme = getTheme(themeId)
-      const merged = { ...registryTheme.cssVars, ...tokens }
+      // Non-styling tokens (e.g. custom overrides without a cssVars counterpart) still apply
+      const nonRegistryTokens = Object.fromEntries(
+        Object.entries(tokens).filter(([k]) => !registryTheme.cssVars?.[k])
+      )
+      const merged = { ...nonRegistryTokens, ...registryTheme.cssVars }
       Object.entries(merged).forEach(([key, value]) => {
         if (key.startsWith('--')) root.style.setProperty(key, value)
       })
