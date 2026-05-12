@@ -31,6 +31,20 @@ services:
       retries: 5
     restart: unless-stopped
 
+  minio:
+    image: minio/minio:latest
+    container_name: event-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-eventinvite}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-EventInvite2024!}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ':9001'
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -44,15 +58,17 @@ services:
       SPRING_DATASOURCE_PASSWORD: eventinvite2024
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://95.216.188.135:9000}
+      # MINIO_ENDPOINT must be the public domain so presigned URLs contain the correct
+      # host for AWS Signature v4 verification when the browser uploads directly to MinIO.
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-https://eventinvitation.freedynamicdns.net}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-eventinvite}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-EventInvite2024!}
       MINIO_BUCKET: event-media
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://95.216.188.135:9000}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-https://eventinvitation.freedynamicdns.net}
       JWT_SECRET: ${JWT_SECRET:-YourSuperSecretJwtKeyThatIsAtLeast256BitsLong_ChangeInProduction!}
       JWT_EXPIRATION_MS: 900000
       JWT_REFRESH_EXPIRATION_MS: 604800000
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://95.216.188.135:8091}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://eventinvitation.freedynamicdns.net}
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,15 +86,31 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://95.216.188.135:8090}
-        VITE_MINIO_PUBLIC_URL: ${VITE_MINIO_PUBLIC_URL:-http://95.216.188.135:9000}
+        VITE_API_URL: ${VITE_API_URL:-https://eventinvitation.freedynamicdns.net}
+        VITE_MINIO_PUBLIC_URL: ${VITE_MINIO_PUBLIC_URL:-https://eventinvitation.freedynamicdns.net}
     container_name: event-frontend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: event-caddy
     ports:
-      - "8091:80"
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       - backend
+      - frontend
+      - minio
     restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
+  minio_data:
+  caddy_data:
+  caddy_config:

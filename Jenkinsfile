@@ -56,10 +56,13 @@ pipeline {
 
         stage('Health Check') {
             steps {
-                sh 'sleep 40'
-                // Jenkins runs in its own container — use Docker bridge gateway (172.17.0.1) to reach host ports
-                sh 'curl -sf http://172.17.0.1:8090/api/actuator/health | grep -q \'"status":"UP"\''
-                sh 'curl -sf -o /dev/null -w "%{http_code}" http://172.17.0.1:8091 | grep -q 200'
+                // Wait for Caddy to obtain the Let's Encrypt certificate (first run) and
+                // for the backend to finish Spring Boot startup.
+                sh 'sleep 60'
+                // Check backend health through Caddy (HTTPS — the real production path)
+                sh 'curl -sf https://eventinvitation.freedynamicdns.net/api/actuator/health | grep -q \'"status":"UP"\''
+                // Check frontend through Caddy
+                sh 'curl -sf -o /dev/null -w "%{http_code}" https://eventinvitation.freedynamicdns.net | grep -q 200'
                 echo 'All health checks passed.'
             }
         }
@@ -69,8 +72,8 @@ pipeline {
         success {
             echo '=========================================='
             echo ' Event Invitation System deployed OK!'
-            echo ' Frontend : http://95.216.188.135:8091'
-            echo ' Backend  : http://95.216.188.135:8090/api'
+            echo ' Site     : https://eventinvitation.freedynamicdns.net'
+            echo ' API      : https://eventinvitation.freedynamicdns.net/api'
             echo '=========================================='
         }
         failure {
