@@ -16,11 +16,11 @@ export JWT_SECRET="YourSuperSecretJwtKeyThatIsAtLeast256BitsLong_ChangeInProduct
 export JWT_EXPIRATION_MS="900000"
 export JWT_REFRESH_EXPIRATION_MS="604800000"
 export CORS_ALLOWED_ORIGINS="http://localhost:5173"
-export MINIO_ENDPOINT="http://localhost:9000"
+export MINIO_ENDPOINT="http://95.216.188.135:9000"
 export MINIO_ACCESS_KEY="eventinvite"
 export MINIO_SECRET_KEY="EventInvite2024!"
 export MINIO_BUCKET="event-media"
-export MINIO_PUBLIC_URL="http://localhost:9000"
+export MINIO_PUBLIC_URL="http://95.216.188.135:9000"
 export SERVER_PORT="8090"
 
 echo "[$(date)] Starting backend..." | tee -a "$LOG"
