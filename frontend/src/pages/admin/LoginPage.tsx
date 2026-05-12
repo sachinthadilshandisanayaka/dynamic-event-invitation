@@ -95,11 +95,6 @@ export function LoginPage() {
             </button>
           </form>
 
-          {mode === 'login' && (
-            <p className="text-center text-sm text-gray-500 mt-4">
-              Default: <code className="bg-gray-100 px-1 rounded">admin@eventinvite.local</code> / <code className="bg-gray-100 px-1 rounded">Admin@1234</code>
-            </p>
-          )}
         </div>
       </div>
 
