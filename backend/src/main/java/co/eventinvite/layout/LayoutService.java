@@ -8,7 +8,10 @@ import org.springframework.cache.annotation.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,5 +44,18 @@ public class LayoutService {
         layout.setSections(sectionsJson);
         layout.setVersion(layout.getVersion() + 1);
         return layoutRepository.save(layout).getSections();
+    }
+
+    @Transactional
+    public void copyLayout(UUID sourceEventId, UUID targetEventId) {
+        String sections = layoutRepository.findByEventId(sourceEventId)
+                .map(Layout::getSections).orElse("[]");
+        layoutRepository.save(Layout.builder()
+                .eventId(targetEventId).sections(sections).version(1).build());
+    }
+
+    public Map<UUID, String> getSectionsForEvents(Collection<UUID> eventIds) {
+        return layoutRepository.findByEventIdIn(eventIds).stream()
+                .collect(Collectors.toMap(Layout::getEventId, Layout::getSections));
     }
 }

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { eventsApi } from '../../api'
 import { useAuthStore } from '../../store/authStore'
 import type { EventResponse } from '../../types'
-import { Plus, Calendar, Globe, Archive, Edit, LogOut, BarChart2, Share2 } from 'lucide-react'
+import { Plus, Calendar, Globe, Archive, Edit, LogOut, BarChart2, Share2, Copy } from 'lucide-react'
 import { CreateEventModal } from '../../components/builder/CreateEventModal'
 import { ShareModal } from '../../components/builder/ShareModal'
 
@@ -27,6 +27,11 @@ export function DashboardPage() {
 
   const archiveMutation = useMutation({
     mutationFn: (slug: string) => eventsApi.archive(slug),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['events'] }),
+  })
+
+  const copyMutation = useMutation({
+    mutationFn: (slug: string) => eventsApi.copy(slug),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['events'] }),
   })
 
@@ -105,7 +110,7 @@ export function DashboardPage() {
                 <div className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="font-semibold text-gray-900 text-lg leading-tight line-clamp-2">
-                      {event.title}
+                      {event.displayTitle || event.title}
                     </h3>
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ml-2 shrink-0 ${statusColor[event.status]}`}>
                       {event.status}
@@ -149,6 +154,15 @@ export function DashboardPage() {
                         Publish
                       </button>
                     )}
+
+                    <button
+                      onClick={() => copyMutation.mutate(event.slug)}
+                      disabled={copyMutation.isPending}
+                      className="p-2 bg-gray-50 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 rounded-lg transition-colors disabled:opacity-50"
+                      title="Duplicate event"
+                    >
+                      <Copy size={16} />
+                    </button>
 
                     <button
                       onClick={() => setShareEvent(event)}

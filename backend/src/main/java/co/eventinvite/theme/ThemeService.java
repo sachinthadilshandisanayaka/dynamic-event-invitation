@@ -77,6 +77,24 @@ public class ThemeService {
         return themeRepository.save(theme);
     }
 
+    @Transactional
+    public void copyTheme(UUID sourceEventId, UUID targetEventId) {
+        Theme src = themeRepository.findByEventId(sourceEventId).orElse(null);
+        if (src == null) { initTheme(targetEventId); return; }
+        themeRepository.save(Theme.builder()
+                .eventId(targetEventId)
+                .primaryColor(src.getPrimaryColor())
+                .secondaryColor(src.getSecondaryColor())
+                .backgroundColor(src.getBackgroundColor())
+                .textColor(src.getTextColor())
+                .accentColor(src.getAccentColor())
+                .fontHeading(src.getFontHeading())
+                .fontBody(src.getFontBody())
+                .borderRadius(src.getBorderRadius())
+                .tokens(src.getTokens())
+                .build());
+    }
+
     private String buildTokens(Theme t) {
         return String.format("""
             {

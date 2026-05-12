@@ -144,6 +144,15 @@ export function EventPage() {
       })
     : undefined
 
+  // ── Envelope card data: pulled from section props ────────────────────────
+  const heroProps        = sortedSections.find(s => s.type === 'hero')?.props
+  const eventDetailsProps = sortedSections.find(s => s.type === 'event-details')?.props
+  const envelopeTitle   = (heroProps?.title as string | undefined) || event.title
+  const envelopeLocation = [
+    eventDetailsProps?.venueName as string | undefined,
+    eventDetailsProps?.address   as string | undefined,
+  ].filter(Boolean).join(', ') || undefined
+
   return (
     <div
       className="min-h-screen relative"
@@ -156,10 +165,9 @@ export function EventPage() {
       {hasAnimation && !animDone && useEnvelopeEntrance && (
         <WeddingEnvelopeExperience
           onComplete={() => setAnimDone(true)}
-          eventTitle={event.title}
           eventDate={formattedDate}
-          eventLocation={event.description}
-          coupleName={event.title}
+          eventLocation={envelopeLocation}
+          coupleName={envelopeTitle}
         />
       )}
 
