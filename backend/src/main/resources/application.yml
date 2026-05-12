@@ -48,11 +48,11 @@ server:
     context-path: /api
 
 minio:
-  endpoint: ${MINIO_ENDPOINT:http://95.216.188.135:9000}
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
   access-key: ${MINIO_ACCESS_KEY:eventinvite}
   secret-key: ${MINIO_SECRET_KEY:EventInvite2024!}
   bucket: ${MINIO_BUCKET:event-media}
-  public-url: ${MINIO_PUBLIC_URL:http://95.216.188.135:9000}
+  public-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
 
 jwt:
   secret: ${JWT_SECRET:YourSuperSecretJwtKeyThatIsAtLeast256BitsLong_ChangeInProduction!}
