@@ -2,31 +2,199 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Base reset & mobile-first foundation ─────────────────────────────────── */
+
 @layer base {
-  * {
+  *, *::before, *::after {
     box-sizing: border-box;
   }
 
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    /* Fluid base font: 15px mobile → 16px desktop */
+    font-size: clamp(15px, 2vw, 16px);
   }
 
   body {
-    font-family: var(--font-body, 'Inter', sans-serif);
+    font-family: var(--font-body, 'Inter', system-ui, sans-serif);
     background-color: var(--color-bg, #ffffff);
     color: var(--color-text, #111827);
     margin: 0;
+    min-height: 100dvh;             /* dynamic viewport height (iOS Safari fix) */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  img, video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  button {
+    /* Touch targets ≥ 44px per WCAG */
+    min-height: 44px;
+    cursor: pointer;
+  }
+
+  /* Focus ring for keyboard nav */
+  :focus-visible {
+    outline: 2px solid var(--color-accent, #6366f1);
+    outline-offset: 3px;
+    border-radius: 4px;
   }
 }
+
+/* ── Fluid typography scale ────────────────────────────────────────────────── */
+
+@layer utilities {
+  .text-fluid-xs  { font-size: clamp(0.7rem,  1.5vw, 0.75rem); }
+  .text-fluid-sm  { font-size: clamp(0.8rem,  2vw,   0.875rem); }
+  .text-fluid-base{ font-size: clamp(0.9rem,  2.2vw, 1rem);    }
+  .text-fluid-lg  { font-size: clamp(1rem,    2.5vw, 1.125rem); }
+  .text-fluid-xl  { font-size: clamp(1.1rem,  3vw,   1.25rem); }
+  .text-fluid-2xl { font-size: clamp(1.25rem, 3.5vw, 1.5rem);  }
+  .text-fluid-3xl { font-size: clamp(1.5rem,  4.5vw, 1.875rem);}
+  .text-fluid-4xl { font-size: clamp(1.75rem, 5.5vw, 2.25rem); }
+  .text-fluid-5xl { font-size: clamp(2rem,    6.5vw, 3rem);    }
+  .text-fluid-6xl { font-size: clamp(2.25rem, 8vw,   3.75rem); }
+  .text-fluid-7xl { font-size: clamp(2.5rem,  9vw,   4.5rem);  }
+
+  /* Safe horizontal padding that scales from mobile → desktop */
+  .px-fluid { padding-left: clamp(1rem, 5vw, 3rem); padding-right: clamp(1rem, 5vw, 3rem); }
+  /* Centered container with fluid max-width */
+  .container-fluid {
+    width: 100%;
+    max-width: min(90vw, 1200px);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: clamp(1rem, 4vw, 2rem);
+    padding-right: clamp(1rem, 4vw, 2rem);
+  }
+}
+
+/* ── Component layer ───────────────────────────────────────────────────────── */
 
 @layer components {
   .widget-section {
     @apply w-full;
   }
+
+  /* ── Invitation card shell ── */
+  .invitation-card {
+    @apply w-full relative overflow-hidden;
+    background: var(--color-surface, #ffffff);
+  }
+
+  /* ── Premium button ── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 font-semibold
+           transition-all duration-200 select-none;
+    min-height: 48px;
+    padding: 0.75rem clamp(1.25rem, 4vw, 2rem);
+    border-radius: var(--border-radius, 0.75rem);
+    background: var(--color-accent, #6366f1);
+    color: #ffffff;
+    letter-spacing: 0.02em;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  }
+  .btn-primary:hover:not(:disabled) {
+    opacity: 0.90;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ── Section heading ── */
+  .section-heading {
+    font-family: var(--font-heading, Georgia, serif);
+    font-size: clamp(1.5rem, 5vw, 2.5rem);
+    line-height: 1.2;
+    color: var(--color-text, #111827);
+    letter-spacing: -0.01em;
+  }
+
+  /* ── Input base ── */
+  .input-base {
+    @apply w-full text-sm outline-none transition-colors duration-150;
+    padding: 0.625rem 0.875rem;
+    border: 1.5px solid rgba(0,0,0,0.12);
+    border-radius: calc(var(--border-radius, 0.75rem) * 0.7);
+    background: #ffffff;
+    color: var(--color-text, #111827);
+    font-family: var(--font-body, system-ui, sans-serif);
+    min-height: 44px;
+  }
+  .input-base:focus {
+    border-color: var(--color-accent, #6366f1);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent, #6366f1) 15%, transparent);
+  }
 }
 
-/* Leaflet overrides */
+/* ── Reduced motion ──────────────────────────────────────────────────────────
+   Respect OS-level "reduce motion" preference on all CSS animations.
+   GSAP animations should use useReducedMotion hook (separate).         */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Leaflet map overrides ───────────────────────────────────────────────── */
 .leaflet-container {
   font-family: inherit;
   border-radius: var(--border-radius, 8px);
+}
+
+/* ── Animation system keyframes ──────────────────────────────────────────── */
+
+@keyframes anim-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes anim-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes anim-fade-up {
+  from { opacity: 0; transform: translateY(clamp(20px, 4vw, 40px)); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes anim-fade-scale {
+  from { opacity: 0; transform: scale(0.93); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes anim-slide-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes anim-bloom {
+  0%   { opacity: 0; transform: scale(0.72); }
+  70%  { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes anim-curtain {
+  from { clip-path: inset(0 0 100% 0); opacity: 0.3; }
+  to   { clip-path: inset(0 0 0% 0);   opacity: 1; }
+}
+@keyframes shimmer-text {
+  0%,100% { background-position: 0% center; }
+  50%     { background-position: 100% center; }
+}
+
+/* ── Mobile-safe scrollbar ───────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Prevent horizontal overflow from decorations/animations */
+  body { overflow-x: hidden; }
 }

@@ -22,9 +22,12 @@ public class RedisConfig {
     public RedisCacheConfiguration cacheConfiguration() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
+        // EVERYTHING (not NON_FINAL) is required because EventResponse and similar DTOs
+        // are Java records, which are implicitly final. NON_FINAL skips @class on final
+        // types, so the cache write stores no type info and read fails with "missing @class".
         mapper.activateDefaultTyping(
             LaissezFaireSubTypeValidator.instance,
-            ObjectMapper.DefaultTyping.NON_FINAL,
+            ObjectMapper.DefaultTyping.EVERYTHING,
             JsonTypeInfo.As.PROPERTY
         );
 

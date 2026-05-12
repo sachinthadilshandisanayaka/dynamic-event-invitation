@@ -16,6 +16,7 @@ export interface EventResponse {
   id: string
   slug: string
   title: string
+  displayTitle?: string
   status: 'DRAFT' | 'PUBLISHED' | 'LIVE' | 'ENDED' | 'ARCHIVED'
   eventDate: string
   eventEndDate?: string

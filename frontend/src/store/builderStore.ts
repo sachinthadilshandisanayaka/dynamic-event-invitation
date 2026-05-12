@@ -6,23 +6,31 @@ interface BuilderStore {
   selectedId: string | null
   theme: Partial<Theme>
   isDirty: boolean
-  setSections: (sections: Section[]) => void
+  setSections: (sections: Section[]) => void   // init from server — no dirty
+  initTheme: (theme: Partial<Theme>) => void    // init from server — no dirty
   addSection: (section: Section) => void
   updateSection: (id: string, props: Record<string, unknown>) => void
   removeSection: (id: string) => void
   reorderSections: (sections: Section[]) => void
   selectSection: (id: string | null) => void
-  setTheme: (theme: Partial<Theme>) => void
+  setTheme: (theme: Partial<Theme>) => void     // user-triggered — marks dirty
+  resetStore: () => void
   markClean: () => void
 }
 
-export const useBuilderStore = create<BuilderStore>((set) => ({
+const INITIAL: Pick<BuilderStore, 'sections' | 'selectedId' | 'theme' | 'isDirty'> = {
   sections: [],
   selectedId: null,
   theme: {},
   isDirty: false,
+}
+
+export const useBuilderStore = create<BuilderStore>((set) => ({
+  ...INITIAL,
 
   setSections: (sections) => set({ sections, isDirty: false }),
+
+  initTheme: (theme) => set({ theme: { ...theme }, isDirty: false }),
 
   addSection: (section) =>
     set((state) => ({
@@ -53,7 +61,10 @@ export const useBuilderStore = create<BuilderStore>((set) => ({
 
   selectSection: (id) => set({ selectedId: id }),
 
-  setTheme: (theme) => set((state) => ({ theme: { ...state.theme, ...theme }, isDirty: true })),
+  setTheme: (theme) =>
+    set((state) => ({ theme: { ...state.theme, ...theme }, isDirty: true })),
+
+  resetStore: () => set({ ...INITIAL }),
 
   markClean: () => set({ isDirty: false }),
 }))

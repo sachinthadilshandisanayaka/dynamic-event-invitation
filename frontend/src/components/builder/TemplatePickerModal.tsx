@@ -1,7 +1,17 @@
 import { useState } from 'react'
-import { X, Check, AlertTriangle } from 'lucide-react'
+import { X, Check, Sparkles } from 'lucide-react'
 import { TEMPLATES, buildSections, type Template } from '../../data/templates'
 import { useBuilderStore } from '../../store/builderStore'
+import { ANIMATION_COLLECTIONS, setAnimationInTokens } from '../../data/animationCollections'
+
+// Best animation match per template id
+const TEMPLATE_ANIMATION_MAP: Record<string, string> = {
+  wedding:   'butterfly-garden',
+  corporate: 'minimalist-lace',
+  birthday:  'rose-petals',
+  gala:      'golden-rings',
+  minimal:   'minimalist-lace',
+}
 
 function TemplateCard({ template, selected, onSelect }: {
   template: Template
@@ -68,16 +78,18 @@ interface Props {
 export function TemplatePickerModal({ onClose, eventDate, timezone }: Props) {
   const { setSections, setTheme } = useBuilderStore()
   const [selected, setSelected] = useState<Template>(TEMPLATES[0])
-  const [confirmed, setConfirmed] = useState(false)
+
+  const suggestedAnimId = TEMPLATE_ANIMATION_MAP[selected.id] ?? ''
+  const suggestedAnim = ANIMATION_COLLECTIONS.find((c) => c.id === suggestedAnimId)
 
   const applyTemplate = () => {
-    if (!confirmed) {
-      setConfirmed(true)
-      return
-    }
-    const sections = buildSections(selected, eventDate, timezone)
-    setSections(sections)
-    setTheme(selected.theme)
+    setSections(buildSections(selected, eventDate, timezone))
+    // Merge suggested animation into theme tokens
+    const baseTheme = selected.theme as Record<string, unknown>
+    const updatedTokens = suggestedAnimId
+      ? setAnimationInTokens(baseTheme.tokens as string | undefined, suggestedAnimId)
+      : undefined
+    setTheme(updatedTokens ? { ...selected.theme, tokens: JSON.parse(updatedTokens) } : selected.theme)
     onClose()
   }
 
@@ -104,7 +116,7 @@ export function TemplatePickerModal({ onClose, eventDate, timezone }: Props) {
                 key={t.id}
                 template={t}
                 selected={selected.id === t.id}
-                onSelect={() => { setSelected(t); setConfirmed(false) }}
+                onSelect={() => setSelected(t)}
               />
             ))}
           </div>
@@ -123,10 +135,13 @@ export function TemplatePickerModal({ onClose, eventDate, timezone }: Props) {
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-100 shrink-0">
-          {confirmed && (
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-2.5 mb-3 text-sm">
-              <AlertTriangle size={15} className="shrink-0" />
-              <span>This will <strong>replace all current sections and theme</strong>. Click Apply again to confirm.</span>
+          {suggestedAnim && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-purple-50 border border-purple-100 rounded-xl">
+              <Sparkles size={13} className="text-purple-500 shrink-0" />
+              <p className="text-xs text-purple-700">
+                <strong>{suggestedAnim.emoji} {suggestedAnim.name}</strong> animation will be applied automatically.
+                You can change it in the <em>Theme</em> tab.
+              </p>
             </div>
           )}
           <div className="flex gap-3">
@@ -136,13 +151,9 @@ export function TemplatePickerModal({ onClose, eventDate, timezone }: Props) {
             </button>
             <button
               onClick={applyTemplate}
-              className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-colors ${
-                confirmed
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              }`}
+              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm transition-colors"
             >
-              {confirmed ? `Yes, Replace with ${selected.name}` : `Apply ${selected.name} Template`}
+              Apply {selected.name} Template
             </button>
           </div>
         </div>

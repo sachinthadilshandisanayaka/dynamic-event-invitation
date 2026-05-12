@@ -17,9 +17,18 @@ export function AgendaWidget({ title = 'Schedule', items = [], bgColor = '#fffff
   const displayItems = items.length > 0 ? items : sampleItems
 
   return (
-    <div className="py-12 px-6" style={{ backgroundColor: bgColor, color: textColor }}>
-      <div className="max-w-2xl mx-auto">
-        <h3 className="text-2xl font-bold mb-8 text-center" style={{ fontFamily: 'var(--font-heading, inherit)' }}>{title}</h3>
+    <div
+      className="px-fluid flex flex-col justify-center"
+      style={{
+        fontFamily: 'var(--font-heading, inherit)',
+        backgroundColor: bgColor,
+        color: textColor,
+        paddingTop: 'clamp(4rem, 10vw, 6rem)',
+        paddingBottom: 'clamp(4rem, 10vw, 6rem)',
+      }}
+    >
+      <div className="container-fluid max-w-2xl">
+        <h3 className="section-heading text-center mb-8">{title}</h3>
         <div className="relative">
           {/* Timeline line */}
           <div className="absolute left-[5.5rem] top-0 bottom-0 w-0.5 bg-current opacity-10" />

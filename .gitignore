@@ -2,12 +2,16 @@
 frontend/dist/
 frontend/node_modules/
 backend/target/
+docs/
 
 # Environment / secrets
 .env
 .env.local
 .env.*.local
 *.env
+
+# Local dev configs (contain local credentials)
+backend/src/main/resources/application-local.yml
 
 # Java
 *.class
@@ -32,6 +36,9 @@ backend/mvnw.cmd
 *.swo
 .DS_Store
 Thumbs.db
+
+# Report
+*.md
 
 # Docker volumes (local dev)
 postgres_data/

@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { eventsApi, layoutApi, themeApi } from '../../api'
 import { X, ChevronRight, ChevronLeft, Check } from 'lucide-react'
 import { TEMPLATES, buildSections, type Template } from '../../data/templates'
+import { ShareModal } from './ShareModal'
 
 const TIMEZONES = [
   'UTC', 'Asia/Colombo', 'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore',
@@ -93,6 +94,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   })
   const [selectedTemplate, setSelectedTemplate] = useState<Template>(TEMPLATES[0])
   const [error, setError] = useState('')
+  const [createdEvent, setCreatedEvent] = useState<{ slug: string; title: string } | null>(null)
 
   const mutation = useMutation({
     mutationFn: async (data: typeof form) => {
@@ -105,7 +107,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
     },
     onSuccess: (event) => {
       queryClient.invalidateQueries({ queryKey: ['events'] })
-      navigate(`/admin/events/${event.slug}`)
+      setCreatedEvent({ slug: event.slug, title: event.title })
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -113,6 +115,19 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
       setStep(1)
     },
   })
+
+  // Show share modal after successful creation
+  if (createdEvent) {
+    return (
+      <ShareModal
+        slug={createdEvent.slug}
+        title={createdEvent.title}
+        isPublished={false}
+        onClose={onClose}
+        onGoToEditor={() => navigate(`/admin/events/${createdEvent.slug}`)}
+      />
+    )
+  }
 
   const handleTitleChange = (title: string) => {
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')

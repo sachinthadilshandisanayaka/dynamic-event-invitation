@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090'
@@ -60,6 +61,7 @@ export const eventsApi = {
   publish: (slug: string) => api.put(`/events/${slug}/publish`).then((r) => r.data.data),
   unpublish: (slug: string) => api.put(`/events/${slug}/unpublish`).then((r) => r.data.data),
   archive: (slug: string) => api.delete(`/events/${slug}`).then((r) => r.data),
+  copy: (slug: string) => api.post(`/events/${slug}/copy`).then((r) => r.data.data),
 }
 
 // ---- Layout ----
@@ -74,8 +76,16 @@ export const layoutApi = {
 // ---- Theme ----
 export const themeApi = {
   get: (slug: string) => api.get(`/events/${slug}/theme`).then((r) => r.data.data),
-  save: (slug: string, theme: object) =>
-    api.put(`/events/${slug}/theme`, theme).then((r) => r.data.data),
+  save: (slug: string, theme: object) => {
+    // Serialize tokens object to JSON string so backend stores it correctly.
+    // Java LinkedHashMap.toString() produces {key=value} format (not valid JSON),
+    // so we must send tokens as a JSON string, not a nested object.
+    const payload = { ...theme } as Record<string, unknown>
+    if (payload.tokens && typeof payload.tokens === 'object') {
+      payload.tokens = JSON.stringify(payload.tokens)
+    }
+    return api.put(`/events/${slug}/theme`, payload).then((r) => r.data.data)
+  },
   getPublic: (slug: string) =>
     axios.get(`${API_URL}/api/events/${slug}/theme`).then((r) => r.data.data),
 }
