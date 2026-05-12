@@ -78,6 +78,15 @@ public class EventController {
         return ResponseEntity.ok(ApiResponse.ok(eventService.unpublish(slug, user.getOrgId())));
     }
 
+    @PostMapping("/{slug}/copy")
+    public ResponseEntity<ApiResponse<EventResponse>> copy(
+            @PathVariable String slug,
+            @AuthenticationPrincipal UserDetails principal) {
+        User user = getUser(principal);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(eventService.copy(slug, user.getOrgId(), user.getId())));
+    }
+
     @DeleteMapping("/{slug}")
     public ResponseEntity<ApiResponse<Void>> archive(
             @PathVariable String slug,

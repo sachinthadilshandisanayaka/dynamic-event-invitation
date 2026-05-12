@@ -144,8 +144,10 @@ export function EventPage() {
       })
     : undefined
 
-  // ── Location for entrance card: pulled from the event-details section ─────
+  // ── Envelope card data: pulled from section props ────────────────────────
+  const heroProps        = sortedSections.find(s => s.type === 'hero')?.props
   const eventDetailsProps = sortedSections.find(s => s.type === 'event-details')?.props
+  const envelopeTitle   = (heroProps?.title as string | undefined) || event.title
   const envelopeLocation = [
     eventDetailsProps?.venueName as string | undefined,
     eventDetailsProps?.address   as string | undefined,
@@ -165,7 +167,7 @@ export function EventPage() {
           onComplete={() => setAnimDone(true)}
           eventDate={formattedDate}
           eventLocation={envelopeLocation}
-          coupleName={event.title}
+          coupleName={envelopeTitle}
         />
       )}
 

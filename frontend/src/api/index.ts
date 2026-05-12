@@ -61,6 +61,7 @@ export const eventsApi = {
   publish: (slug: string) => api.put(`/events/${slug}/publish`).then((r) => r.data.data),
   unpublish: (slug: string) => api.put(`/events/${slug}/unpublish`).then((r) => r.data.data),
   archive: (slug: string) => api.delete(`/events/${slug}`).then((r) => r.data),
+  copy: (slug: string) => api.post(`/events/${slug}/copy`).then((r) => r.data.data),
 }
 
 // ---- Layout ----

@@ -7,6 +7,7 @@ public record EventResponse(
         UUID id,
         String slug,
         String title,
+        String displayTitle,
         String status,
         Instant eventDate,
         Instant eventEndDate,
