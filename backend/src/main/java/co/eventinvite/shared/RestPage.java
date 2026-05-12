@@ -19,7 +19,14 @@ import java.util.List;
  * Usage: return new RestPage<>(page) instead of returning Page<T> directly
  * from any @Cacheable method.
  */
-@JsonIgnoreProperties(ignoreUnknown = true)
+// Explicitly exclude PageImpl fields that cannot be deserialized by Jackson:
+//   pageable / sort — Spring classes with no default constructor; @class hint causes failure
+//   first / last / empty / numberOfElements / totalPages — all computable from the @JsonCreator
+//   params so they should never be stored in or read from the cache.
+@JsonIgnoreProperties(
+    value = {"pageable", "sort", "first", "last", "empty", "numberOfElements", "totalPages"},
+    ignoreUnknown = true
+)
 public class RestPage<T> extends PageImpl<T> {
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
