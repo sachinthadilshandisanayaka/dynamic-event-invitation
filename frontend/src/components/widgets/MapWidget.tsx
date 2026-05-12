@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { MapPin, Navigation, ExternalLink, Search, Loader2 } from 'lucide-react'
+import { gsap, ScrollTrigger } from '../../lib/gsap-init'
+import { AnimatedText } from '../animations/AnimatedText'
+import { useAnimationDisabled } from '../../contexts/AnimationContext'
 
 interface Props {
   venueName?: string
@@ -121,6 +124,29 @@ export function MapWidget({
   const [geocodeQuery, setGeocodeQuery] = useState('')
   const [showGeocode, setShowGeocode] = useState(false)
 
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const disabled = useAnimationDisabled()
+
+  useEffect(() => {
+    const el = wrapperRef.current
+    if (!el || disabled) return
+    const children = Array.from(el.children) as HTMLElement[]
+    const reset = () => gsap.set(children, { opacity: 0, y: 32 })
+    reset()
+    const trigger = ScrollTrigger.create({
+      trigger: el,
+      start: 'top 88%',
+      onEnter: () => gsap.to(children, {
+        opacity: 1, y: 0,
+        duration: 0.75,
+        ease: 'power3.out',
+        stagger: 0.14,
+      }),
+      onLeaveBack: reset,
+    })
+    return () => { trigger.kill(); gsap.set(children, { clearProps: 'all' }) }
+  }, [disabled])
+
   // Auto-resolve coords from Google Maps URL
   useEffect(() => {
     if (googleMapsUrl && !coords) {
@@ -171,7 +197,7 @@ export function MapWidget({
         paddingRight: 'clamp(1rem, 5vw, 2.5rem)',
       }}
     >
-      <div className="max-w-3xl mx-auto">
+      <div ref={wrapperRef} className="max-w-3xl mx-auto">
 
         {/* ── Venue info card ───────────────────────────────────────────────── */}
         <div
@@ -193,12 +219,13 @@ export function MapWidget({
 
             <div className="min-w-0 flex-1">
               {venueName && (
-                <h3
+                <AnimatedText
+                  as="h3"
+                  text={venueName}
+                  split="words"
                   className="font-bold leading-snug text-gray-900"
                   style={{ fontSize: 'clamp(1rem, 3.5vw, 1.2rem)' }}
-                >
-                  {venueName}
-                </h3>
+                />
               )}
               {address && (
                 <p className="text-gray-500 mt-0.5 text-sm leading-relaxed break-words">

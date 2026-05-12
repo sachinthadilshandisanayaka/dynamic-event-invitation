@@ -56,6 +56,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/widgets").permitAll()
                 .requestMatchers(HttpMethod.GET, "/rsvp/{token}").permitAll()
                 .requestMatchers(HttpMethod.POST, "/rsvp/{token}").permitAll()
+                .requestMatchers(HttpMethod.GET, "/events/{slug}/custom-fields").permitAll()
                 .requestMatchers(HttpMethod.POST, "/analytics/track").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

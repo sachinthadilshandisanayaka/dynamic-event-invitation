@@ -53,7 +53,7 @@ public class ThemeService {
                 .orElseThrow(() -> new NotFoundException("Theme not found"));
     }
 
-    @CacheEvict(value = "theme", key = "#eventId")
+    @CacheEvict(value = "theme", key = "#eventId", beforeInvocation = true)
     @Transactional
     public Theme save(UUID eventId, Map<String, Object> dto) {
         Theme theme = themeRepository.findByEventId(eventId)

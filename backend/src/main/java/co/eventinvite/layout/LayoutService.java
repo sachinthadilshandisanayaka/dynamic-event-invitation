@@ -36,7 +36,7 @@ public class LayoutService {
                 .getSections();
     }
 
-    @CacheEvict(value = "layout", key = "#eventId")
+    @CacheEvict(value = "layout", key = "#eventId", beforeInvocation = true)
     @Transactional
     public String save(UUID eventId, String sectionsJson) {
         Layout layout = layoutRepository.findByEventId(eventId)
