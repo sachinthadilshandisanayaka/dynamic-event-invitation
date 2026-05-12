@@ -11,16 +11,28 @@ interface Props {
 }
 
 const FONT_OPTIONS = [
-  { label: 'Default (Theme)', value: '' },
-  { label: 'Inter',            value: 'Inter, sans-serif' },
-  { label: 'Playfair Display', value: "'Playfair Display', serif" },
+  { label: 'Default (Theme)',    value: '' },
+  // ── Classic / Neutral ──────────────────────────────────────────────────────
+  { label: 'Inter',              value: 'Inter, sans-serif' },
+  { label: 'Lato',               value: 'Lato, sans-serif' },
+  { label: 'Poppins',            value: 'Poppins, sans-serif' },
+  { label: 'Montserrat',         value: 'Montserrat, sans-serif' },
+  { label: 'Roboto',             value: 'Roboto, sans-serif' },
+  { label: 'Open Sans',          value: "'Open Sans', sans-serif" },
+  // ── Elegant Serif ──────────────────────────────────────────────────────────
+  { label: 'Playfair Display',   value: "'Playfair Display', serif" },
   { label: 'Cormorant Garamond', value: "'Cormorant Garamond', serif" },
-  { label: 'Lato',             value: 'Lato, sans-serif' },
-  { label: 'Poppins',          value: 'Poppins, sans-serif' },
-  { label: 'Merriweather',     value: 'Merriweather, serif' },
-  { label: 'Montserrat',       value: 'Montserrat, sans-serif' },
-  { label: 'Roboto',           value: 'Roboto, sans-serif' },
-  { label: 'Open Sans',        value: "'Open Sans', sans-serif" },
+  { label: 'Merriweather',       value: 'Merriweather, serif' },
+  { label: 'EB Garamond',        value: "'EB Garamond', serif" },
+  { label: 'Bodoni Moda',        value: "'Bodoni Moda', serif" },
+  { label: 'Italiana',           value: 'Italiana, serif' },
+  // ── Formal / Architectural ─────────────────────────────────────────────────
+  { label: 'Cinzel',             value: 'Cinzel, serif' },
+  { label: 'Josefin Sans',       value: "'Josefin Sans', sans-serif" },
+  { label: 'Raleway',            value: 'Raleway, sans-serif' },
+  // ── Script / Calligraphy ───────────────────────────────────────────────────
+  { label: 'Great Vibes',        value: "'Great Vibes', cursive" },
+  { label: 'Dancing Script',     value: "'Dancing Script', cursive" },
 ]
 
 const TEXT_SIZE_OPTIONS = [
@@ -175,6 +187,25 @@ export function PropEditor({ widgets, slug }: Props) {
 
       case 'agenda-list':
         return <AgendaEditor value={value as AgendaItem[] || []} onChange={(v) => update(fieldKey, v)} />
+
+      case 'agenda-style':
+        return (
+          <div className="flex gap-1.5">
+            {AGENDA_STYLE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => update(fieldKey, opt.value)}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                  (value || 'timeline') === opt.value
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )
 
       default:
         return (
@@ -599,38 +630,183 @@ function GalleryImageManager({
 
 // ── Agenda editor ─────────────────────────────────────────────────────────────
 
-interface AgendaItem { time: string; title: string; description?: string }
+interface AgendaItem {
+  time: string
+  endTime?: string
+  title: string
+  description?: string
+  speaker?: string
+  location?: string
+  category?: string
+  emoji?: string
+}
+
+const AGENDA_STYLE_OPTIONS = [
+  { value: 'timeline', label: 'Timeline' },
+  { value: 'cards',    label: 'Cards' },
+  { value: 'compact',  label: 'Compact' },
+]
 
 function AgendaEditor({ value, onChange }: { value: AgendaItem[]; onChange: (v: AgendaItem[]) => void }) {
-  const add    = () => onChange([...value, { time: '', title: 'New item' }])
-  const remove = (i: number) => onChange(value.filter((_, idx) => idx !== i))
-  const upd    = (i: number, field: keyof AgendaItem, v: string) => {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+
+  const add = () => {
+    const next = [...value, { time: '', title: 'New Item', category: '' }]
+    onChange(next)
+    setExpandedIdx(next.length - 1)
+  }
+
+  const remove = (i: number) => {
+    onChange(value.filter((_, idx) => idx !== i))
+    if (expandedIdx === i) setExpandedIdx(null)
+  }
+
+  const upd = (i: number, field: keyof AgendaItem, v: string) => {
     const updated = [...value]
     updated[i] = { ...updated[i], [field]: v }
     onChange(updated)
   }
 
+  const moveUp = (i: number) => {
+    if (i === 0) return
+    const updated = [...value]
+    ;[updated[i - 1], updated[i]] = [updated[i], updated[i - 1]]
+    onChange(updated)
+    setExpandedIdx(i - 1)
+  }
+
+  const moveDown = (i: number) => {
+    if (i === value.length - 1) return
+    const updated = [...value]
+    ;[updated[i], updated[i + 1]] = [updated[i + 1], updated[i]]
+    onChange(updated)
+    setExpandedIdx(i + 1)
+  }
+
   return (
     <div className="space-y-2">
-      {value.map((item, i) => (
-        <div key={i} className="border border-gray-200 rounded-lg p-2 space-y-1.5">
-          <div className="flex gap-1.5">
-            <input className="prop-input w-24 shrink-0" placeholder="9:00 AM" value={item.time}
-              onChange={(e) => upd(i, 'time', e.target.value)} />
-            <input className="prop-input flex-1" placeholder="Title" value={item.title}
-              onChange={(e) => upd(i, 'title', e.target.value)} />
-            <button onClick={() => remove(i)} className="p-1 text-red-400 hover:bg-red-50 rounded">
-              <X size={12} />
-            </button>
+      {value.map((item, i) => {
+        const isOpen = expandedIdx === i
+        return (
+          <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
+            {/* Item header — always visible */}
+            <div
+              className="flex items-center gap-1.5 px-2 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+              onClick={() => setExpandedIdx(isOpen ? null : i)}
+            >
+              {item.emoji && <span className="text-sm shrink-0">{item.emoji}</span>}
+              <span className="text-xs font-medium text-gray-500 shrink-0 w-16 truncate">{item.time || '—'}</span>
+              <span className="text-xs font-semibold text-gray-800 flex-1 truncate">
+                {item.title || 'Untitled'}
+              </span>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  onClick={(e) => { e.stopPropagation(); moveUp(i) }}
+                  className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-20"
+                  disabled={i === 0}
+                  title="Move up"
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); moveDown(i) }}
+                  className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-20"
+                  disabled={i === value.length - 1}
+                  title="Move down"
+                >
+                  ↓
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); remove(i) }}
+                  className="p-1 text-red-400 hover:bg-red-50 rounded ml-0.5"
+                >
+                  <X size={11} />
+                </button>
+                <ChevronDown
+                  size={12}
+                  className="text-gray-400 ml-0.5 transition-transform"
+                  style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                />
+              </div>
+            </div>
+
+            {/* Expanded fields */}
+            {isOpen && (
+              <div className="p-2 space-y-1.5 border-t border-gray-100">
+                {/* Time row */}
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div>
+                    <label className="prop-label">Start Time</label>
+                    <input className="prop-input" placeholder="9:00 AM" value={item.time}
+                      onChange={(e) => upd(i, 'time', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="prop-label">End Time</label>
+                    <input className="prop-input" placeholder="10:00 AM" value={item.endTime || ''}
+                      onChange={(e) => upd(i, 'endTime', e.target.value)} />
+                  </div>
+                </div>
+
+                {/* Title + emoji */}
+                <div className="grid grid-cols-[1fr_56px] gap-1.5">
+                  <div>
+                    <label className="prop-label">Title *</label>
+                    <input className="prop-input" placeholder="Item title" value={item.title}
+                      onChange={(e) => upd(i, 'title', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="prop-label">Emoji</label>
+                    <input className="prop-input text-center" placeholder="🎤" value={item.emoji || ''}
+                      onChange={(e) => upd(i, 'emoji', e.target.value)} />
+                  </div>
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="prop-label">Category / Tag</label>
+                  <input className="prop-input" placeholder="e.g. Keynote, Break, Workshop" value={item.category || ''}
+                    onChange={(e) => upd(i, 'category', e.target.value)} />
+                </div>
+
+                {/* Speaker */}
+                <div>
+                  <label className="prop-label">Speaker / Host</label>
+                  <input className="prop-input" placeholder="Name of speaker or host" value={item.speaker || ''}
+                    onChange={(e) => upd(i, 'speaker', e.target.value)} />
+                </div>
+
+                {/* Location */}
+                <div>
+                  <label className="prop-label">Location / Room</label>
+                  <input className="prop-input" placeholder="e.g. Main Stage, Room A" value={item.location || ''}
+                    onChange={(e) => upd(i, 'location', e.target.value)} />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="prop-label">Description</label>
+                  <textarea className="prop-input resize-none" rows={2}
+                    placeholder="Short description of this session…"
+                    value={item.description || ''}
+                    onChange={(e) => upd(i, 'description', e.target.value)} />
+                </div>
+              </div>
+            )}
           </div>
-          <input className="prop-input" placeholder="Description (optional)" value={item.description || ''}
-            onChange={(e) => upd(i, 'description', e.target.value)} />
-        </div>
-      ))}
-      <button onClick={add}
-        className="w-full py-1.5 text-xs text-indigo-600 border border-dashed border-indigo-300 rounded-lg hover:bg-indigo-50 transition-colors">
-        + Add item
+        )
+      })}
+
+      <button
+        onClick={add}
+        className="w-full py-2 text-xs font-medium text-indigo-600 border border-dashed border-indigo-300 rounded-lg hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1.5"
+      >
+        <Plus size={12} />
+        Add agenda item
       </button>
+
+      {value.length > 0 && (
+        <p className="text-center text-[10px] text-gray-400">{value.length} item{value.length !== 1 ? 's' : ''}</p>
+      )}
     </div>
   )
 }

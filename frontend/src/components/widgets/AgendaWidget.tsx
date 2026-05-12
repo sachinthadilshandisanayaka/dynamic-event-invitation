@@ -1,57 +1,617 @@
-interface AgendaItem { time: string; title: string; description?: string }
+import { useState, useRef, useEffect } from 'react'
+import { Clock, MapPin, User, ChevronDown } from 'lucide-react'
+import { gsap, ScrollTrigger } from '../../lib/gsap-init'
+import { AnimatedText } from '../animations/AnimatedText'
+import { useAnimationDisabled } from '../../contexts/AnimationContext'
+
+export interface AgendaItem {
+  time: string
+  endTime?: string
+  title: string
+  description?: string
+  speaker?: string
+  location?: string
+  category?: string
+  emoji?: string
+}
 
 interface Props {
   title?: string
+  subtitle?: string
   items?: AgendaItem[]
+  style?: 'timeline' | 'cards' | 'compact'
   bgColor?: string
   textColor?: string
+  accentColor?: string
 }
 
-export function AgendaWidget({ title = 'Schedule', items = [], bgColor = '#ffffff', textColor = '#111827' }: Props) {
-  const sampleItems: AgendaItem[] = [
-    { time: '10:00 AM', title: 'Welcome & Registration' },
-    { time: '11:00 AM', title: 'Keynote', description: 'Opening remarks' },
-    { time: '1:00 PM', title: 'Lunch Break' },
-    { time: '2:00 PM', title: 'Closing Ceremony' },
-  ]
-  const displayItems = items.length > 0 ? items : sampleItems
+// Palette cycles for category badges
+const CATEGORY_PALETTES: { bg: string; text: string; border: string }[] = [
+  { bg: 'rgba(99,102,241,0.12)',  text: '#6366f1', border: 'rgba(99,102,241,0.3)'  },
+  { bg: 'rgba(236,72,153,0.12)',  text: '#ec4899', border: 'rgba(236,72,153,0.3)'  },
+  { bg: 'rgba(245,158,11,0.12)',  text: '#d97706', border: 'rgba(245,158,11,0.3)'  },
+  { bg: 'rgba(16,185,129,0.12)',  text: '#059669', border: 'rgba(16,185,129,0.3)'  },
+  { bg: 'rgba(14,165,233,0.12)',  text: '#0ea5e9', border: 'rgba(14,165,233,0.3)'  },
+  { bg: 'rgba(239,68,68,0.12)',   text: '#ef4444', border: 'rgba(239,68,68,0.3)'   },
+  { bg: 'rgba(168,85,247,0.12)',  text: '#a855f7', border: 'rgba(168,85,247,0.3)'  },
+]
+
+function getCategoryPalette(category: string, allCategories: string[]) {
+  const idx = allCategories.indexOf(category)
+  return CATEGORY_PALETTES[(idx < 0 ? 0 : idx) % CATEGORY_PALETTES.length]
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+function formatTimeRange(time: string, endTime?: string) {
+  if (!endTime) return time
+  return `${time} – ${endTime}`
+}
+
+// ── Sample data shown when no items exist ────────────────────────────────────
+
+const SAMPLE_ITEMS: AgendaItem[] = [
+  { time: '9:00 AM',  endTime: '9:30 AM',  title: 'Registration & Welcome',    category: 'Arrival',   location: 'Lobby',       emoji: '👋' },
+  { time: '9:30 AM',  endTime: '10:30 AM', title: 'Opening Keynote',           category: 'Keynote',   location: 'Main Stage',  speaker: 'Dr. Sarah Chen',  description: 'An inspiring talk on the future of innovation and community.' },
+  { time: '10:45 AM', endTime: '12:00 PM', title: 'Interactive Workshop',      category: 'Workshop',  location: 'Room A',      speaker: 'Alex Rivera',     description: 'Hands-on session with collaborative activities.' },
+  { time: '12:00 PM', endTime: '1:00 PM',  title: 'Networking Lunch',          category: 'Break',     location: 'Garden',      emoji: '🍽️' },
+  { time: '1:00 PM',  endTime: '2:30 PM',  title: 'Panel Discussion',          category: 'Talk',      location: 'Main Stage',  speaker: 'Multiple Speakers', description: 'Open discussion with industry leaders.' },
+  { time: '2:45 PM',  endTime: '3:00 PM',  title: 'Closing Ceremony',          category: 'Ceremony',  location: 'Main Stage',  emoji: '🎉' },
+]
+
+// ── Hook: stagger-animate direct [data-agenda-item] children on scroll ───────
+
+function useItemStagger(containerRef: React.RefObject<HTMLElement | null>, deps: unknown[]) {
+  const disabled = useAnimationDisabled()
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || disabled) return
+
+    const items = Array.from(container.querySelectorAll<HTMLElement>('[data-agenda-item]'))
+    if (!items.length) return
+
+    const reset = () => gsap.set(items, { opacity: 0, y: 28 })
+    reset()
+
+    const trigger = ScrollTrigger.create({
+      trigger: container,
+      start: 'top 86%',
+      onEnter: () => {
+        gsap.to(items, {
+          opacity: 1,
+          y: 0,
+          duration: 0.65,
+          ease: 'power3.out',
+          stagger: 0.1,
+        })
+      },
+      onLeaveBack: reset,
+    })
+
+    return () => {
+      trigger.kill()
+      gsap.set(items, { clearProps: 'all' })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...deps, disabled])
+}
+
+// ── Timeline Style ─────────────────────────────────────────────────────────────
+
+function TimelineItem({
+  item,
+  accentColor,
+  textColor,
+  bgColor,
+  categoryPalette,
+  isLast,
+}: {
+  item: AgendaItem
+  accentColor: string
+  textColor: string
+  bgColor: string
+  categoryPalette?: { bg: string; text: string; border: string }
+  isLast: boolean
+}) {
+  const [expanded, setExpanded] = useState(true)
+  const hasMeta = item.speaker || item.location
+  const hasDescription = !!item.description
+
+  return (
+    <div data-agenda-item className="relative flex gap-0">
+      {/* Time column */}
+      <div className="w-24 sm:w-28 shrink-0 pt-0.5 text-right pr-4">
+        <span
+          className="text-xs font-semibold leading-tight block"
+          style={{ color: textColor, opacity: 0.55 }}
+        >
+          {item.time}
+        </span>
+        {item.endTime && (
+          <span
+            className="text-[10px] leading-tight block mt-0.5"
+            style={{ color: textColor, opacity: 0.35 }}
+          >
+            {item.endTime}
+          </span>
+        )}
+      </div>
+
+      {/* Dot + line column */}
+      <div className="relative flex flex-col items-center">
+        <div
+          className="relative z-10 w-3 h-3 rounded-full mt-1 shrink-0"
+          style={{
+            backgroundColor: accentColor,
+            boxShadow: `0 0 0 2px ${bgColor}, 0 0 0 4px ${hexToRgba(accentColor, 0.25)}`,
+          }}
+        />
+        {!isLast && (
+          <div
+            className="flex-1 w-px mt-1 min-h-[2rem]"
+            style={{ backgroundColor: textColor, opacity: 0.1 }}
+          />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 pl-4 pb-8">
+        <div className="flex flex-wrap items-start gap-2 mb-1">
+          {item.emoji && <span className="text-base leading-none mt-0.5">{item.emoji}</span>}
+          <h4
+            className="font-semibold text-sm sm:text-[15px] leading-snug flex-1 min-w-0"
+            style={{ color: textColor }}
+          >
+            {item.title}
+          </h4>
+          {item.category && categoryPalette && (
+            <span
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 border"
+              style={{
+                backgroundColor: categoryPalette.bg,
+                color: categoryPalette.text,
+                borderColor: categoryPalette.border,
+              }}
+            >
+              {item.category}
+            </span>
+          )}
+        </div>
+
+        {hasMeta && (
+          <div className="flex flex-wrap gap-3 mb-1.5">
+            {item.speaker && (
+              <span className="flex items-center gap-1 text-[11px]" style={{ color: textColor, opacity: 0.55 }}>
+                <User size={10} />
+                {item.speaker}
+              </span>
+            )}
+            {item.location && (
+              <span className="flex items-center gap-1 text-[11px]" style={{ color: textColor, opacity: 0.55 }}>
+                <MapPin size={10} />
+                {item.location}
+              </span>
+            )}
+          </div>
+        )}
+
+        {hasDescription && (
+          <>
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="flex items-center gap-1 text-[11px] mb-1 transition-opacity hover:opacity-80"
+              style={{ color: textColor, opacity: 0.45 }}
+            >
+              <ChevronDown
+                size={12}
+                className="transition-transform duration-200"
+                style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              />
+              {expanded ? 'Hide details' : 'Show details'}
+            </button>
+            {expanded && (
+              <p
+                className="text-xs leading-relaxed"
+                style={{ color: textColor, opacity: 0.6 }}
+              >
+                {item.description}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TimelineView({
+  items,
+  accentColor,
+  textColor,
+  bgColor,
+  allCategories,
+}: {
+  items: AgendaItem[]
+  accentColor: string
+  textColor: string
+  bgColor: string
+  allCategories: string[]
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  useItemStagger(containerRef, [items])
+
+  return (
+    <div ref={containerRef} className="mt-8">
+      {items.map((item, i) => (
+        <TimelineItem
+          key={i}
+          item={item}
+          accentColor={accentColor}
+          textColor={textColor}
+          bgColor={bgColor}
+          categoryPalette={item.category ? getCategoryPalette(item.category, allCategories) : undefined}
+          isLast={i === items.length - 1}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ── Cards Style ────────────────────────────────────────────────────────────────
+
+function CardItem({
+  item,
+  accentColor,
+  textColor,
+  bgColor,
+  categoryPalette,
+}: {
+  item: AgendaItem
+  accentColor: string
+  textColor: string
+  bgColor: string
+  categoryPalette?: { bg: string; text: string; border: string }
+}) {
+  const cardBg     = hexToRgba(accentColor, 0.04)
+  const cardBorder = hexToRgba(accentColor, 0.12)
 
   return (
     <div
-      className="px-fluid flex flex-col justify-center"
+      data-agenda-item
+      className="relative rounded-xl border overflow-hidden transition-shadow hover:shadow-md"
       style={{
-        fontFamily: 'var(--font-heading, inherit)',
-        backgroundColor: bgColor,
-        color: textColor,
-        paddingTop: 'clamp(4rem, 10vw, 6rem)',
-        paddingBottom: 'clamp(4rem, 10vw, 6rem)',
+        backgroundColor: cardBg,
+        borderColor: cardBorder,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
       }}
     >
-      <div className="container-fluid max-w-2xl">
-        <h3 className="section-heading text-center mb-8">{title}</h3>
-        <div className="relative">
-          {/* Timeline line */}
-          <div className="absolute left-[5.5rem] top-0 bottom-0 w-0.5 bg-current opacity-10" />
+      <div
+        className="h-0.5 w-full absolute top-0 left-0"
+        style={{ backgroundColor: accentColor, opacity: 0.5 }}
+      />
 
-          <div className="space-y-6">
-            {displayItems.map((item, i) => (
-              <div key={i} className="flex gap-6 items-start relative">
-                <div className="w-20 text-right shrink-0">
-                  <span className="text-sm font-semibold opacity-60">{item.time}</span>
-                </div>
-                {/* Dot */}
-                <div className="absolute left-[5rem] top-1 w-3 h-3 rounded-full border-2 border-current"
-                  style={{ backgroundColor: bgColor }} />
-                <div className="flex-1 pl-6">
-                  <p className="font-semibold text-base">{item.title}</p>
+      <div className="p-4 pt-5">
+        <div
+          className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full mb-3"
+          style={{
+            backgroundColor: hexToRgba(accentColor, 0.12),
+            color: accentColor,
+          }}
+        >
+          <Clock size={9} />
+          {formatTimeRange(item.time, item.endTime)}
+        </div>
+
+        <div className="flex items-start gap-2 mb-2">
+          {item.emoji && <span className="text-lg leading-none shrink-0">{item.emoji}</span>}
+          <h4
+            className="font-semibold text-sm sm:text-[15px] leading-snug flex-1"
+            style={{ color: textColor }}
+          >
+            {item.title}
+          </h4>
+        </div>
+
+        {item.category && categoryPalette && (
+          <span
+            className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border mb-2"
+            style={{
+              backgroundColor: categoryPalette.bg,
+              color: categoryPalette.text,
+              borderColor: categoryPalette.border,
+            }}
+          >
+            {item.category}
+          </span>
+        )}
+
+        {item.description && (
+          <p className="text-[12px] leading-relaxed mb-3" style={{ color: textColor, opacity: 0.6 }}>
+            {item.description}
+          </p>
+        )}
+
+        {(item.speaker || item.location) && (
+          <div
+            className="flex flex-wrap gap-x-3 gap-y-1 pt-2.5 mt-2 border-t"
+            style={{ borderColor: hexToRgba(textColor, 0.08) }}
+          >
+            {item.speaker && (
+              <span className="flex items-center gap-1 text-[11px]" style={{ color: textColor, opacity: 0.5 }}>
+                <User size={10} />
+                {item.speaker}
+              </span>
+            )}
+            {item.location && (
+              <span className="flex items-center gap-1 text-[11px]" style={{ color: textColor, opacity: 0.5 }}>
+                <MapPin size={10} />
+                {item.location}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CardsView({
+  items,
+  accentColor,
+  textColor,
+  bgColor,
+  allCategories,
+}: {
+  items: AgendaItem[]
+  accentColor: string
+  textColor: string
+  bgColor: string
+  allCategories: string[]
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  useItemStagger(containerRef, [items])
+
+  return (
+    <div ref={containerRef} className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {items.map((item, i) => (
+        <CardItem
+          key={i}
+          item={item}
+          accentColor={accentColor}
+          textColor={textColor}
+          bgColor={bgColor}
+          categoryPalette={item.category ? getCategoryPalette(item.category, allCategories) : undefined}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ── Compact / Table Style ──────────────────────────────────────────────────────
+
+function CompactView({
+  items,
+  accentColor,
+  textColor,
+  allCategories,
+}: {
+  items: AgendaItem[]
+  accentColor: string
+  textColor: string
+  allCategories: string[]
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  useItemStagger(containerRef, [items])
+
+  return (
+    <div ref={containerRef} className="mt-8 overflow-hidden rounded-xl border" style={{ borderColor: hexToRgba(textColor, 0.1) }}>
+      {items.map((item, i) => {
+        const palette = item.category ? getCategoryPalette(item.category, allCategories) : undefined
+        const isEven  = i % 2 === 0
+
+        return (
+          <div
+            key={i}
+            data-agenda-item
+            className="flex items-start gap-4 px-5 py-3.5 border-b last:border-b-0"
+            style={{
+              borderColor: hexToRgba(textColor, 0.07),
+              backgroundColor: isEven ? 'transparent' : hexToRgba(textColor, 0.02),
+            }}
+          >
+            <div className="w-20 sm:w-24 shrink-0 pt-0.5">
+              <span className="text-xs font-semibold block" style={{ color: textColor, opacity: 0.5 }}>
+                {item.time}
+              </span>
+              {item.endTime && (
+                <span className="text-[10px] block mt-0.5" style={{ color: textColor, opacity: 0.35 }}>
+                  {item.endTime}
+                </span>
+              )}
+            </div>
+
+            <div
+              className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
+              style={{ backgroundColor: accentColor }}
+            />
+
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                {item.emoji && <span className="text-sm">{item.emoji}</span>}
+                <span className="text-sm font-semibold" style={{ color: textColor }}>
+                  {item.title}
+                </span>
+                {item.category && palette && (
+                  <span
+                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border"
+                    style={{
+                      backgroundColor: palette.bg,
+                      color: palette.text,
+                      borderColor: palette.border,
+                    }}
+                  >
+                    {item.category}
+                  </span>
+                )}
+              </div>
+              {(item.speaker || item.location || item.description) && (
+                <div className="flex flex-wrap gap-3 mt-0.5">
                   {item.description && (
-                    <p className="text-sm opacity-60 mt-0.5">{item.description}</p>
+                    <span className="text-[11px] w-full" style={{ color: textColor, opacity: 0.55 }}>
+                      {item.description}
+                    </span>
+                  )}
+                  {item.speaker && (
+                    <span className="flex items-center gap-1 text-[11px]" style={{ color: textColor, opacity: 0.45 }}>
+                      <User size={10} /> {item.speaker}
+                    </span>
+                  )}
+                  {item.location && (
+                    <span className="flex items-center gap-1 text-[11px]" style={{ color: textColor, opacity: 0.45 }}>
+                      <MapPin size={10} /> {item.location}
+                    </span>
                   )}
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Main Widget ────────────────────────────────────────────────────────────────
+
+export function AgendaWidget({
+  title = 'Schedule',
+  subtitle,
+  items = [],
+  style = 'timeline',
+  bgColor = '#ffffff',
+  textColor = '#111827',
+  accentColor = '#6366f1',
+}: Props) {
+  const displayItems    = items.length > 0 ? items : SAMPLE_ITEMS
+  const allCategories   = [...new Set(displayItems.map((i) => i.category).filter(Boolean) as string[])]
+  const resolvedAccent  = accentColor || '#6366f1'
+
+  return (
+    <div
+      style={{
+        fontFamily: 'var(--font-body, inherit)',
+        backgroundColor: bgColor,
+        color: textColor,
+        paddingTop: 'clamp(3.5rem, 9vw, 5.5rem)',
+        paddingBottom: 'clamp(3.5rem, 9vw, 5.5rem)',
+      }}
+    >
+      <div
+        className="mx-auto px-5 sm:px-8"
+        style={{ maxWidth: style === 'cards' ? '820px' : '680px' }}
+      >
+        {/* Header */}
+        <div className="text-center mb-2">
+          <div
+            className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-widest uppercase mb-3"
+            style={{ color: resolvedAccent, opacity: 0.8 }}
+          >
+            <span className="h-px w-6 inline-block" style={{ backgroundColor: resolvedAccent, opacity: 0.5 }} />
+            Program
+            <span className="h-px w-6 inline-block" style={{ backgroundColor: resolvedAccent, opacity: 0.5 }} />
+          </div>
+
+          <AnimatedText
+            as="h3"
+            text={title}
+            split="words"
+            className="font-bold leading-tight block"
+            style={{
+              fontFamily: 'var(--font-heading, inherit)',
+              color: textColor,
+              fontSize: 'clamp(1.5rem, 4vw, 2.25rem)',
+            }}
+          />
+
+          {subtitle && (
+            <AnimatedText
+              as="p"
+              text={subtitle}
+              split="words"
+              delay={200}
+              className="mt-2 text-sm leading-relaxed max-w-lg mx-auto block"
+              style={{ color: textColor, opacity: 0.55 }}
+            />
+          )}
+
+          <div
+            className="mx-auto mt-4 h-0.5 rounded-full"
+            style={{
+              width: '3rem',
+              background: `linear-gradient(90deg, transparent, ${resolvedAccent}, transparent)`,
+            }}
+          />
         </div>
+
+        {/* Category legend */}
+        {allCategories.length >= 2 && (
+          <div className="flex flex-wrap justify-center gap-2 mt-6">
+            {allCategories.map((cat) => {
+              const p = getCategoryPalette(cat, allCategories)
+              return (
+                <span
+                  key={cat}
+                  className="text-[10px] font-semibold px-2.5 py-1 rounded-full border"
+                  style={{ backgroundColor: p.bg, color: p.text, borderColor: p.border }}
+                >
+                  {cat}
+                </span>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Content */}
+        {style === 'timeline' && (
+          <TimelineView
+            items={displayItems}
+            accentColor={resolvedAccent}
+            textColor={textColor}
+            bgColor={bgColor}
+            allCategories={allCategories}
+          />
+        )}
+        {style === 'cards' && (
+          <CardsView
+            items={displayItems}
+            accentColor={resolvedAccent}
+            textColor={textColor}
+            bgColor={bgColor}
+            allCategories={allCategories}
+          />
+        )}
+        {style === 'compact' && (
+          <CompactView
+            items={displayItems}
+            accentColor={resolvedAccent}
+            textColor={textColor}
+            allCategories={allCategories}
+          />
+        )}
+
+        {displayItems.length > 0 && (
+          <p
+            className="text-center text-[11px] mt-8"
+            style={{ color: textColor, opacity: 0.3 }}
+          >
+            {displayItems.length} {displayItems.length === 1 ? 'item' : 'items'} on the program
+          </p>
+        )}
       </div>
     </div>
   )

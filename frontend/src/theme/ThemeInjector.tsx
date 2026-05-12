@@ -11,19 +11,25 @@ export function ThemeInjector({ theme }: Props) {
     const root = document.documentElement
     let tokens: Record<string, string> = {}
 
+    // Build field-level fallback vars from the theme entity properties
+    const fieldVars: Record<string, string> = {}
+    if (theme.primaryColor)    fieldVars['--color-primary']   = theme.primaryColor
+    if (theme.secondaryColor)  fieldVars['--color-secondary'] = theme.secondaryColor
+    if (theme.backgroundColor) fieldVars['--color-bg']        = theme.backgroundColor
+    if (theme.textColor)       fieldVars['--color-text']      = theme.textColor
+    if (theme.accentColor)     fieldVars['--color-accent']    = theme.accentColor
+    if (theme.fontHeading)     fieldVars['--font-heading']    = `'${theme.fontHeading}', sans-serif`
+    if (theme.fontBody)        fieldVars['--font-body']       = `'${theme.fontBody}', sans-serif`
+    if (theme.borderRadius)    fieldVars['--border-radius']   = theme.borderRadius
+
     if (theme.tokens) {
-      tokens = typeof theme.tokens === 'string'
+      const parsed: Record<string, string> = typeof theme.tokens === 'string'
         ? JSON.parse(theme.tokens)
         : theme.tokens
+      // Merge: field vars supply CSS vars that the tokens object doesn't explicitly set
+      tokens = { ...fieldVars, ...parsed }
     } else {
-      if (theme.primaryColor)   tokens['--color-primary']   = theme.primaryColor
-      if (theme.secondaryColor) tokens['--color-secondary']  = theme.secondaryColor
-      if (theme.backgroundColor) tokens['--color-bg']        = theme.backgroundColor
-      if (theme.textColor)      tokens['--color-text']       = theme.textColor
-      if (theme.accentColor)    tokens['--color-accent']     = theme.accentColor
-      if (theme.fontHeading)    tokens['--font-heading']     = `'${theme.fontHeading}', sans-serif`
-      if (theme.fontBody)       tokens['--font-body']        = `'${theme.fontBody}', sans-serif`
-      if (theme.borderRadius)   tokens['--border-radius']    = theme.borderRadius
+      tokens = fieldVars
     }
 
     // When a registry theme is selected, its cssVars are authoritative for styling.

@@ -1,5 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
+import { gsap, ScrollTrigger } from '../../lib/gsap-init'
+import { AnimatedText } from '../animations/AnimatedText'
+import { useAnimationDisabled } from '../../contexts/AnimationContext'
 
 interface Props {
   title?: string
@@ -46,6 +49,42 @@ export function GalleryWidget({
   aspectRatio = 'square',
 }: Props) {
   const [lightbox, setLightbox] = useState<number | null>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const disabled = useAnimationDisabled()
+
+  // Stagger-reveal gallery items on scroll
+  useEffect(() => {
+    const grid = gridRef.current
+    if (!grid || disabled) return
+
+    const items = Array.from(grid.querySelectorAll<HTMLElement>('[data-gallery-item]'))
+    if (!items.length) return
+
+    const reset = () => gsap.set(items, { opacity: 0, y: 26, scale: 0.94 })
+    reset()
+
+    const trigger = ScrollTrigger.create({
+      trigger: grid,
+      start: 'top 88%',
+      onEnter: () => {
+        gsap.to(items, {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.7,
+          ease: 'power3.out',
+          stagger: { amount: 0.5, from: 'start' },
+        })
+      },
+      onLeaveBack: reset,
+    })
+
+    return () => {
+      trigger.kill()
+      gsap.set(items, { clearProps: 'all' })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images.length, layout, disabled])
   const gapPx    = GAP_PX[gap]    ?? 12
   const colCount = COL_COUNT[columns] ?? 3
   const radius   = rounded ? 'var(--border-radius, 8px)' : '0'
@@ -93,7 +132,14 @@ export function GalleryWidget({
     return (
       <div style={containerStyle}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-          {title && <h3 style={titleStyle}>{title}</h3>}
+          {title && (
+            <AnimatedText
+              as="h3"
+              text={title}
+              split="words"
+              style={titleStyle}
+            />
+          )}
           <div style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${colCount}, 1fr)`,
@@ -134,11 +180,18 @@ export function GalleryWidget({
   return (
     <div style={containerStyle}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        {title && <h3 style={titleStyle}>{title}</h3>}
+        {title && (
+          <AnimatedText
+            as="h3"
+            text={title}
+            split="words"
+            style={titleStyle}
+          />
+        )}
 
         {/* ── Grid Layout ──────────────────────────────────────────────── */}
         {layout === 'grid' && (
-          <div style={{
+          <div ref={gridRef} style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${colCount}, 1fr)`,
             gap: gapPx,
@@ -157,7 +210,7 @@ export function GalleryWidget({
 
         {/* ── Masonry Layout ───────────────────────────────────────────── */}
         {layout === 'masonry' && (
-          <div style={{
+          <div ref={gridRef} style={{
             columnCount: colCount,
             columnGap: gapPx,
           }}>
@@ -176,7 +229,7 @@ export function GalleryWidget({
 
         {/* ── Spotlight Layout ─────────────────────────────────────────── */}
         {layout === 'spotlight' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: gapPx }}>
+          <div ref={gridRef} style={{ display: 'flex', flexDirection: 'column', gap: gapPx }}>
             {/* First image — hero */}
             {images[0] && (
               <GalleryItem
@@ -310,6 +363,7 @@ function GalleryItem({
 }) {
   return (
     <div
+      data-gallery-item
       onClick={onClick}
       style={{
         position: 'relative',
