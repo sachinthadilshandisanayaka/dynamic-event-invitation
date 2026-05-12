@@ -7,6 +7,8 @@ import co.eventinvite.layout.LayoutService;
 import co.eventinvite.shared.RestPage;
 import co.eventinvite.shared.exception.*;
 import co.eventinvite.theme.ThemeService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.*;
 import org.springframework.data.domain.*;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.text.Normalizer;
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ public class EventService {
     private final EventRepository eventRepository;
     private final LayoutService layoutService;
     private final ThemeService themeService;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public EventResponse create(EventRequest req, UUID orgId, UUID userId) {
@@ -117,8 +121,49 @@ public class EventService {
 
     @Cacheable(value = "events", key = "#orgId + ':' + #page + ':' + #size")
     public RestPage<EventResponse> list(UUID orgId, int page, int size) {
-        return new RestPage<>(eventRepository.findByOrgIdOrderByCreatedAtDesc(
-                orgId, PageRequest.of(page, size)).map(this::toResponse));
+        Page<Event> eventsPage = eventRepository.findByOrgIdOrderByCreatedAtDesc(
+                orgId, PageRequest.of(page, size));
+
+        List<UUID> ids = eventsPage.map(Event::getId).toList();
+        Map<UUID, String> sectionsMap = layoutService.getSectionsForEvents(ids);
+
+        return new RestPage<>(eventsPage.map(e ->
+                toResponse(e, extractHeroTitle(sectionsMap.get(e.getId())))));
+    }
+
+    @CacheEvict(value = "events", allEntries = true)
+    @Transactional
+    public EventResponse copy(String slug, UUID orgId, UUID userId) {
+        Event src = getBySlug(slug);
+        assertOwner(src, orgId);
+
+        String baseSlug = src.getSlug() + "-copy";
+        String newSlug = baseSlug;
+        int attempt = 1;
+        while (eventRepository.existsBySlug(newSlug)) {
+            newSlug = baseSlug + "-" + (++attempt);
+        }
+
+        Event copy = Event.builder()
+                .orgId(orgId)
+                .slug(newSlug)
+                .title("Copy of " + src.getTitle())
+                .status(EventStatus.DRAFT)
+                .eventDate(src.getEventDate())
+                .eventEndDate(src.getEventEndDate())
+                .timezone(src.getTimezone())
+                .description(src.getDescription())
+                .ogTitle(src.getOgTitle())
+                .ogDescription(src.getOgDescription())
+                .ogImageUrl(src.getOgImageUrl())
+                .createdBy(userId)
+                .build();
+        copy = eventRepository.save(copy);
+
+        layoutService.copyLayout(src.getId(), copy.getId());
+        themeService.copyTheme(src.getId(), copy.getId());
+
+        return toResponse(copy, null);
     }
 
     @Caching(evict = {
@@ -152,9 +197,27 @@ public class EventService {
     }
 
     public EventResponse toResponse(Event e) {
-        return new EventResponse(e.getId(), e.getSlug(), e.getTitle(), e.getStatus().name(),
-                e.getEventDate(), e.getEventEndDate(), e.getTimezone(), e.getDescription(),
-                e.getOgTitle(), e.getOgDescription(), e.getOgImageUrl(),
+        return toResponse(e, null);
+    }
+
+    public EventResponse toResponse(Event e, String displayTitle) {
+        return new EventResponse(e.getId(), e.getSlug(), e.getTitle(), displayTitle,
+                e.getStatus().name(), e.getEventDate(), e.getEventEndDate(), e.getTimezone(),
+                e.getDescription(), e.getOgTitle(), e.getOgDescription(), e.getOgImageUrl(),
                 e.getOrgId(), e.getCreatedAt(), e.getUpdatedAt());
+    }
+
+    private String extractHeroTitle(String sectionsJson) {
+        if (sectionsJson == null || sectionsJson.isBlank()) return null;
+        try {
+            JsonNode sections = objectMapper.readTree(sectionsJson);
+            for (JsonNode section : sections) {
+                if ("hero".equals(section.path("type").asText(null))) {
+                    String title = section.path("props").path("title").asText(null);
+                    return (title != null && !title.isBlank()) ? title : null;
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }
