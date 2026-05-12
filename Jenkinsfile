@@ -57,9 +57,10 @@ pipeline {
         stage('Health Check') {
             steps {
                 sh 'sleep 40'
-                // Jenkins runs in its own container — use Docker bridge gateway (172.17.0.1) to reach host ports
+                // Backend: check via bridge gateway (port 8090 published on host)
                 sh 'curl -sf http://172.17.0.1:8090/api/actuator/health | grep -q \'"status":"UP"\''
-                sh 'curl -sf -o /dev/null -w "%{http_code}" http://172.17.0.1:8091 | grep -q 200'
+                // Frontend: check through the domain (tests the full HTTPS path via nginx)
+                sh 'curl -sf -o /dev/null -w "%{http_code}" https://eventinvitation.freedynamicdns.net | grep -q 200'
                 echo 'All health checks passed.'
             }
         }
@@ -69,8 +70,8 @@ pipeline {
         success {
             echo '=========================================='
             echo ' Event Invitation System deployed OK!'
-            echo ' Frontend : http://95.216.188.135:8091'
-            echo ' Backend  : http://95.216.188.135:8090/api'
+            echo ' Site     : https://eventinvitation.freedynamicdns.net'
+            echo ' API      : https://eventinvitation.freedynamicdns.net/api'
             echo '=========================================='
         }
         failure {
