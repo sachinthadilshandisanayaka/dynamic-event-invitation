@@ -1,3 +1,5 @@
+import { AnimatedText } from '../animations/AnimatedText'
+
 interface Props {
   title?: string
   subtitle?: string
@@ -5,6 +7,8 @@ interface Props {
   bgColor?: string
   textColor?: string
   height?: 'small' | 'medium' | 'large' | 'full'
+  bgOverlay?: number
+  fontFamily?: string
 }
 
 const HEIGHTS: Record<string, string> = {
@@ -21,8 +25,11 @@ export function HeroBanner({
   bgColor = '#6366f1',
   textColor = '#ffffff',
   height = 'large',
+  bgOverlay = 0.4,
+  fontFamily,
 }: Props) {
   const heightClass = HEIGHTS[height] ?? HEIGHTS.large
+  const overlayOpacity = typeof bgOverlay === 'number' ? bgOverlay : 0.4
 
   return (
     <div
@@ -34,22 +41,35 @@ export function HeroBanner({
         backgroundPosition: 'center',
       }}
     >
-      {bgImage && <div className="absolute inset-0 bg-black/40" />}
+      {bgImage && (
+        <div
+          className="absolute inset-0"
+          style={{ backgroundColor: `rgba(0,0,0,${overlayOpacity})` }}
+        />
+      )}
 
       <div className="relative z-10 text-center container-fluid">
-        <h1
-          className="text-fluid-5xl sm:text-fluid-6xl md:text-fluid-7xl font-bold leading-tight mb-3 sm:mb-5"
-          style={{ color: textColor, fontFamily: 'var(--font-heading, inherit)' }}
-        >
-          {title}
-        </h1>
+        {/* Title — chars cascade in on mount */}
+        <AnimatedText
+          as="h1"
+          text={title}
+          split="chars"
+          heroMode
+          className="text-fluid-5xl sm:text-fluid-6xl md:text-fluid-7xl font-bold leading-tight mb-3 sm:mb-5 block"
+          style={{ color: textColor, fontFamily: fontFamily || 'var(--font-heading, inherit)' }}
+        />
+
+        {/* Subtitle — words rise after title */}
         {subtitle && (
-          <p
-            className="text-fluid-lg sm:text-fluid-xl md:text-fluid-2xl opacity-90 leading-relaxed max-w-prose mx-auto"
-            style={{ color: textColor, fontFamily: 'var(--font-body, inherit)' }}
-          >
-            {subtitle}
-          </p>
+          <AnimatedText
+            as="p"
+            text={subtitle}
+            split="words"
+            heroMode
+            delay={650}
+            className="text-fluid-lg sm:text-fluid-xl md:text-fluid-2xl opacity-90 leading-relaxed max-w-prose mx-auto block"
+            style={{ color: textColor, fontFamily: fontFamily || 'var(--font-body, inherit)' }}
+          />
         )}
       </div>
     </div>

@@ -71,10 +71,13 @@ public class WidgetCatalog {
 
         Map.of("type", "agenda", "label", "Event Agenda", "category", "content", "icon", "list",
             "schema", Map.of(
-                "title", Map.of("type", "text", "label", "Section Title", "default", "Schedule"),
-                "items", Map.of("type", "agenda-list", "label", "Agenda Items"),
-                "bgColor", Map.of("type", "color", "label", "Background Color", "default", "#ffffff"),
-                "textColor", Map.of("type", "color", "label", "Text Color", "default", "#111827")
+                "title",       Map.of("type", "text",         "label", "Section Title",   "default", "Schedule"),
+                "subtitle",    Map.of("type", "text",         "label", "Subtitle / Tagline"),
+                "style",       Map.of("type", "agenda-style", "label", "Display Style",   "default", "timeline"),
+                "items",       Map.of("type", "agenda-list",  "label", "Agenda Items"),
+                "accentColor", Map.of("type", "color",        "label", "Accent Color",    "default", "#6366f1"),
+                "bgColor",     Map.of("type", "color",        "label", "Background Color","default", "#ffffff"),
+                "textColor",   Map.of("type", "color",        "label", "Text Color",      "default", "#111827")
             )),
 
         Map.of("type", "rich-text", "label", "Text Block", "category", "content", "icon", "type",

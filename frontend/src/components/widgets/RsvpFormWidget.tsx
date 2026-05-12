@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { rsvpApi, analyticsApi } from '../../api'
 import type { CustomField } from '../../types'
 import { CheckCircle, XCircle, Users, MessageSquare } from 'lucide-react'
+import { gsap, ScrollTrigger } from '../../lib/gsap-init'
+import { AnimatedText } from '../animations/AnimatedText'
+import { useAnimationDisabled } from '../../contexts/AnimationContext'
 
 interface Props {
   title?: string
@@ -30,6 +33,24 @@ export function RsvpFormWidget({
   const [message, setMessage] = useState('')
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const disabled = useAnimationDisabled()
+
+  // Slide the whole RSVP card up on scroll
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || disabled) return
+    const reset = () => gsap.set(el, { opacity: 0, y: 40 })
+    reset()
+    const trigger = ScrollTrigger.create({
+      trigger: el,
+      start: 'top 88%',
+      onEnter:     () => gsap.to(el, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }),
+      onLeaveBack: reset,
+    })
+    return () => { trigger.kill(); gsap.set(el, { clearProps: 'all' }) }
+  }, [disabled])
 
   useEffect(() => {
     if (attending !== null && eventSlug) {
@@ -103,8 +124,13 @@ export function RsvpFormWidget({
   // ── Main form ─────────────────────────────────────────────────────────────────
   return (
     <div className="px-fluid flex flex-col justify-center" style={{ fontFamily: 'var(--font-heading, inherit)', backgroundColor: bgColor, paddingTop: 'clamp(4rem, 10vw, 6rem)', paddingBottom: 'clamp(4rem, 10vw, 6rem)' }}>
-      <div className="container-fluid max-w-md">
-        <h2 className="section-heading text-center mb-7 sm:mb-9">{title}</h2>
+      <div ref={containerRef} className="container-fluid max-w-md">
+        <AnimatedText
+          as="h2"
+          text={title}
+          split="words"
+          className="section-heading text-center mb-7 sm:mb-9"
+        />
 
         {/* Attending buttons */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">

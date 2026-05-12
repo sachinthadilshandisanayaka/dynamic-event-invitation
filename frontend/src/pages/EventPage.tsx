@@ -9,10 +9,10 @@ import { SectionDecorationLayer } from '../components/theme/SectionDecorationLay
 import { WidgetRenderer } from '../components/widgets/WidgetRenderer'
 import { LoadingScreen } from '../components/animations/LoadingScreen'
 import { ParticleSystem } from '../components/animations/ParticleSystem'
-import { ScrollReveal } from '../components/animations/ScrollReveal'
 import { WeddingEnvelopeExperience } from '../components/wedding-envelope/WeddingEnvelopeExperience'
 import { getThemeIdFromTokens, getTheme } from '../data/themeRegistry'
 import { getAnimationIdFromTokens, getAnimationCollection } from '../data/animationCollections'
+import { PageRevealContext } from '../contexts/PageRevealContext'
 import type { Section } from '../types'
 
 export function EventPage() {
@@ -77,6 +77,12 @@ export function EventPage() {
   useEffect(() => {
     if (!themeLoading && !hasAnimation) setAnimDone(true)
   }, [hasAnimation, themeLoading])
+
+  // Safety net: never leave the user stuck on the entrance screen
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimDone(true), 10000)
+    return () => clearTimeout(timer)
+  }, [])
 
   // Load any Google Fonts referenced in section props
   useEffect(() => {
@@ -186,6 +192,7 @@ export function EventPage() {
       )}
 
       {/* ── Main invitation content ── */}
+      <PageRevealContext.Provider value={animDone}>
       <div
         style={{
           opacity: animDone ? 1 : 0,
@@ -276,8 +283,13 @@ export function EventPage() {
                   // Background color on the section itself (not the widget)
                   // so it fills the full section width even for narrow-content sections.
                   ...(!isHero && bgColor && !bgImage ? { backgroundColor: bgColor } : {}),
-                  // Per-section font / color CSS vars cascade into all child widgets
-                  ...(fontFamily ? { '--font-heading': fontFamily, '--font-body': fontFamily } as React.CSSProperties : {}),
+                  // Per-section font — set both as direct CSS property (for inheritance)
+                  // and as CSS vars (for widgets that read them explicitly)
+                  ...(fontFamily ? {
+                    fontFamily,
+                    '--font-heading': fontFamily,
+                    '--font-body':    fontFamily,
+                  } as React.CSSProperties : {}),
                   ...(textColor  ? { '--color-text': textColor } as React.CSSProperties : {}),
                 }}
               >
@@ -311,22 +323,18 @@ export function EventPage() {
                   maxWidth,
                   margin: '0 auto',
                 }}>
-                  <ScrollReveal
-                    scrollAnim={collection.scrollAnim}
-                    delay={index === 0 ? 0 : Math.min(index * 80, 300)}
-                  >
-                    <WidgetRenderer
-                      section={widgetSection}
-                      eventSlug={slug}
-                      inviteToken={inviteToken}
-                    />
-                  </ScrollReveal>
+                  <WidgetRenderer
+                    section={widgetSection}
+                    eventSlug={slug}
+                    inviteToken={inviteToken}
+                  />
                 </div>
               </div>
             )
           })
         )}
       </div>
+      </PageRevealContext.Provider>
     </div>
   )
 }

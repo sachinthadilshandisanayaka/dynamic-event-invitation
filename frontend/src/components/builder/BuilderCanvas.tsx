@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo } from 'react'
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   PointerSensor, useSensor, useSensors, closestCenter,
@@ -12,6 +12,32 @@ import type { Section } from '../../types'
 import { GripVertical, Trash2, Copy } from 'lucide-react'
 import { useState } from 'react'
 import { ensureGoogleFontsForSections } from '../../lib/googleFonts'
+import { AnimationDisabledContext } from '../../contexts/AnimationContext'
+
+/** Derive CSS var map from the builder store theme — mirrors ThemeInjector logic. */
+function useThemeVars() {
+  const theme = useBuilderStore((s) => s.theme)
+  return useMemo(() => {
+    const vars: Record<string, string> = {}
+    if (theme.primaryColor)    vars['--color-primary']   = theme.primaryColor
+    if (theme.secondaryColor)  vars['--color-secondary'] = theme.secondaryColor
+    if (theme.backgroundColor) vars['--color-bg']        = theme.backgroundColor
+    if (theme.textColor)       vars['--color-text']      = theme.textColor
+    if (theme.accentColor)     vars['--color-accent']    = theme.accentColor
+    if (theme.fontHeading)     vars['--font-heading']    = `'${theme.fontHeading}', sans-serif`
+    if (theme.fontBody)        vars['--font-body']       = `'${theme.fontBody}', sans-serif`
+    if (theme.borderRadius)    vars['--border-radius']   = theme.borderRadius ?? '8px'
+    // Explicit token CSS-var overrides (e.g. --color-primary: #xxx) win over field values
+    if (theme.tokens) {
+      const parsed: Record<string, string> =
+        typeof theme.tokens === 'string'
+          ? (() => { try { return JSON.parse(theme.tokens) } catch { return {} } })()
+          : (theme.tokens as Record<string, string>)
+      Object.entries(parsed).forEach(([k, v]) => { if (k.startsWith('--')) vars[k] = v })
+    }
+    return vars as React.CSSProperties
+  }, [theme])
+}
 
 function SortableSection({ section, isSelected, onSelect, onDelete, onDuplicate }: {
   section: Section
@@ -56,21 +82,30 @@ function SortableSection({ section, isSelected, onSelect, onDelete, onDuplicate 
         </button>
       </div>
 
-      {/* Widget preview — CSS vars mirror what EventPage sets on the section wrapper */}
-      <div
-        className="pointer-events-none select-none"
-        style={{
-          ...(section.props.fontFamily ? {
-            '--font-heading': section.props.fontFamily as string,
-            '--font-body':    section.props.fontFamily as string,
-          } as React.CSSProperties : {}),
-          ...(section.props.textColor ? {
-            '--color-text': section.props.textColor as string,
-          } as React.CSSProperties : {}),
-        }}
-      >
-        <WidgetRenderer section={section} preview />
-      </div>
+      {/* Widget preview — mirrors the CSS-var + backgroundColor setup from EventPage */}
+      <AnimationDisabledContext.Provider value={true}>
+        <div
+          className="pointer-events-none select-none"
+          style={{
+            // section bgColor on wrapper (same as EventPage for non-hero sections)
+            ...(section.type !== 'hero' && section.props.bgColor && !section.props.bgImage
+              ? { backgroundColor: section.props.bgColor as string }
+              : {}),
+            // font override
+            ...(section.props.fontFamily ? {
+              fontFamily:       section.props.fontFamily as string,
+              '--font-heading': section.props.fontFamily as string,
+              '--font-body':    section.props.fontFamily as string,
+            } as React.CSSProperties : {}),
+            // text-color CSS var override
+            ...(section.props.textColor ? {
+              '--color-text': section.props.textColor as string,
+            } as React.CSSProperties : {}),
+          }}
+        >
+          <WidgetRenderer section={section} preview />
+        </div>
+      </AnimationDisabledContext.Provider>
     </div>
   )
 }
@@ -78,6 +113,7 @@ function SortableSection({ section, isSelected, onSelect, onDelete, onDuplicate 
 export function BuilderCanvas({ slug, onOpenTemplates }: { slug: string; onOpenTemplates?: () => void }) {
   const { sections, selectedId, selectSection, removeSection, reorderSections, addSection } = useBuilderStore()
   const [activeSection, setActiveSection] = useState<Section | null>(null)
+  const themeVars = useThemeVars()
 
   // Pre-load all Google Fonts used in the current layout
   useEffect(() => { ensureGoogleFontsForSections(sections) }, [sections])
@@ -109,6 +145,7 @@ export function BuilderCanvas({ slug, onOpenTemplates }: { slug: string; onOpenT
   return (
     <div
       className="flex-1 overflow-auto bg-gray-200 relative"
+      style={themeVars}
       onDragOver={(e) => e.preventDefault()}
     >
       {sections.length === 0 ? (
