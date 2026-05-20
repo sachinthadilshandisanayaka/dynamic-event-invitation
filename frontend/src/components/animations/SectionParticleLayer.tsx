@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, useRef, useState, useId } from 'react'
 
 // ── Particle catalogue ─────────────────────────────────────────────────────────
 
@@ -57,10 +57,8 @@ export function SectionParticleLayer({
   speed = 'normal',
   size = 'medium',
 }: Props) {
-  // Return nothing for 'none' or empty
   if (!particleId || particleId === 'none') return null
 
-  // Find the SVG source
   const entry = SECTION_PARTICLES.find((p) => p.id === particleId)
   if (!entry || !entry.src) return null
 
@@ -75,7 +73,7 @@ export function SectionParticleLayer({
   )
 }
 
-// Separated so hooks run unconditionally (no early return before useMemo)
+// Separated so hooks run unconditionally (no early return before hooks)
 function SectionParticleLayerInner({
   src,
   count,
@@ -89,10 +87,32 @@ function SectionParticleLayerInner({
   speed: 'slow' | 'normal' | 'fast'
   size: 'small' | 'medium' | 'large'
 }) {
-  const pixelSize   = SIZE_MAP[size]
-  const speedMul    = SPEED_MULTIPLIER[speed]
+  const pixelSize = SIZE_MAP[size]
+  const speedMul  = SPEED_MULTIPLIER[speed]
 
-  // Generate stable particle configs — deterministic pseudo-random from index
+  // Unique ID per instance → unique @keyframes names, no cross-section conflicts
+  const rawId = useId()
+  const uid   = rawId.replace(/[^a-zA-Z0-9]/g, 'x')
+  const fallAnim  = `sdp-fall-${uid}`
+  const driftAnim = `sdp-drift-${uid}`
+
+  // Measure parent section height so particles travel the exact section distance
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [fallPx, setFallPx] = useState(800)
+
+  useEffect(() => {
+    // The particle wrapper sits inside the section div — its parentElement is the section
+    const section = wrapperRef.current?.parentElement
+    if (!section) return
+    const update = () => setFallPx(Math.max(section.offsetHeight, 150) + pixelSize + 40)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(section)
+    return () => ro.disconnect()
+  }, [pixelSize])
+
+  const startY = -(pixelSize + 20)
+
   const particles = useMemo<ParticleConfig[]>(
     () =>
       Array.from({ length: count }, (_, i) => {
@@ -111,45 +131,57 @@ function SectionParticleLayerInner({
   return (
     <>
       <style>{`
-        @keyframes sdp-fall {
-          from { transform: translateY(-120px) rotate(0deg); }
-          to   { transform: translateY(calc(100vh + 200px)) rotate(720deg); }
+        @keyframes ${fallAnim} {
+          0%   { transform: translateY(${startY}px) rotate(0deg); }
+          100% { transform: translateY(${fallPx}px) rotate(720deg); }
         }
-        @keyframes sdp-drift {
-          0%, 100% { margin-left: 0px; }
-          50%       { margin-left: 28px; }
+        @keyframes ${driftAnim} {
+          0%, 100% { transform: translateX(0px); }
+          50%      { transform: translateX(24px); }
         }
       `}</style>
 
+      {/* translateZ(0) fixes iOS Safari overflow:hidden + transform clipping */}
       <div
+        ref={wrapperRef}
         style={{
           position:      'absolute',
           inset:         0,
           pointerEvents: 'none',
           overflow:      'hidden',
           zIndex:        1,
+          transform:     'translateZ(0)',
         }}
       >
         {particles.map((p, i) => (
-          <img
+          // Outer div handles horizontal drift independently from fall
+          <div
             key={i}
-            src={src}
-            alt=""
-            draggable={false}
             style={{
-              position:  'absolute',
-              top:       0,
-              left:      p.left,
-              width:     p.size,
-              height:    p.size,
-              opacity,
-              userSelect: 'none',
-              animation: [
-                `sdp-fall ${p.duration}s linear ${p.delay}s infinite`,
-                `sdp-drift ${p.driftDuration}s ease-in-out ${p.delay}s alternate infinite`,
-              ].join(', '),
+              position:     'absolute',
+              top:          0,
+              left:         p.left,
+              width:        p.size,
+              height:       p.size,
+              willChange:   'transform',
+              animation:    `${driftAnim} ${p.driftDuration}s ease-in-out ${p.delay}s alternate infinite`,
             }}
-          />
+          >
+            {/* Inner img handles fall + rotate — no competing transforms */}
+            <img
+              src={src}
+              alt=""
+              draggable={false}
+              style={{
+                width:      p.size,
+                height:     p.size,
+                opacity,
+                userSelect: 'none',
+                willChange: 'transform',
+                animation:  `${fallAnim} ${p.duration}s linear ${p.delay}s infinite`,
+              }}
+            />
+          </div>
         ))}
       </div>
     </>
