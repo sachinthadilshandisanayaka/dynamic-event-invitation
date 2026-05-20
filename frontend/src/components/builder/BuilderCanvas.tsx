@@ -8,6 +8,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useBuilderStore } from '../../store/builderStore'
 import { WidgetRenderer } from '../widgets/WidgetRenderer'
+import { SectionParticleLayer } from '../animations/SectionParticleLayer'
 import type { Section } from '../../types'
 import { GripVertical, Trash2, Copy } from 'lucide-react'
 import { useState } from 'react'
@@ -87,6 +88,8 @@ function SortableSection({ section, isSelected, onSelect, onDelete, onDuplicate 
         <div
           className="pointer-events-none select-none"
           style={{
+            position: 'relative',
+            overflow: 'hidden',
             // section bgColor on wrapper (same as EventPage for non-hero sections)
             ...(section.type !== 'hero' && section.props.bgColor && !section.props.bgImage
               ? { backgroundColor: section.props.bgColor as string }
@@ -103,7 +106,19 @@ function SortableSection({ section, isSelected, onSelect, onDelete, onDuplicate 
             } as React.CSSProperties : {}),
           }}
         >
-          <WidgetRenderer section={section} preview />
+          {/* Section particles in builder preview */}
+          {!!(section.props.bgParticle) && section.props.bgParticle !== 'none' && (
+            <SectionParticleLayer
+              particleId={section.props.bgParticle as string}
+              count={(section.props.bgParticleCount as number) || 12}
+              opacity={(section.props.bgParticleOpacity as number) || 0.7}
+              speed={(section.props.bgParticleSpeed as 'slow' | 'normal' | 'fast') || 'normal'}
+              size={(section.props.bgParticleSize as 'small' | 'medium' | 'large') || 'medium'}
+            />
+          )}
+          <div style={{ position: 'relative', zIndex: 2 }}>
+            <WidgetRenderer section={section} preview />
+          </div>
         </div>
       </AnimationDisabledContext.Provider>
     </div>

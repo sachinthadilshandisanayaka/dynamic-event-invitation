@@ -112,8 +112,8 @@ function SectionParticleLayerInner({
     <>
       <style>{`
         @keyframes sdp-fall {
-          from { transform: translateY(-80px) rotate(0deg); }
-          to   { transform: translateY(calc(100% + 80px)) rotate(360deg); }
+          from { transform: translateY(-120px) rotate(0deg); }
+          to   { transform: translateY(calc(100vh + 200px)) rotate(720deg); }
         }
         @keyframes sdp-drift {
           0%, 100% { margin-left: 0px; }
@@ -138,7 +138,7 @@ function SectionParticleLayerInner({
             draggable={false}
             style={{
               position:  'absolute',
-              top:       '-80px',
+              top:       0,
               left:      p.left,
               width:     p.size,
               height:    p.size,
