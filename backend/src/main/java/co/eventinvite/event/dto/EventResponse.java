@@ -18,5 +18,6 @@ public record EventResponse(
         String ogImageUrl,
         UUID orgId,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        Instant deletedAt
 ) {}

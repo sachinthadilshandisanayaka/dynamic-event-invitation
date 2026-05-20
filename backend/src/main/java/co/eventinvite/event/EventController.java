@@ -30,6 +30,15 @@ public class EventController {
         return ResponseEntity.ok(ApiResponse.ok(eventService.list(user.getOrgId(), page, size)));
     }
 
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<RestPage<EventResponse>>> listDeleted(
+            @AuthenticationPrincipal UserDetails principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        User user = getUser(principal);
+        return ResponseEntity.ok(ApiResponse.ok(eventService.listDeleted(user.getOrgId(), page, size)));
+    }
+
     @PostMapping
     public ResponseEntity<ApiResponse<EventResponse>> create(
             @Valid @RequestBody EventRequest req,
@@ -44,7 +53,6 @@ public class EventController {
             @RequestParam(required = false) boolean preview,
             @AuthenticationPrincipal UserDetails principal) {
         if (principal != null || preview) {
-            // Admin view — no cache, no status check
             User user = principal != null ? getUser(principal) : null;
             return ResponseEntity.ok(ApiResponse.ok(
                     user != null ? eventService.getForAdmin(slug, user.getOrgId())
@@ -87,13 +95,24 @@ public class EventController {
                 .body(ApiResponse.ok(eventService.copy(slug, user.getOrgId(), user.getId())));
     }
 
+    /** Soft delete — moves event to history (recoverable for 10 days). */
     @DeleteMapping("/{slug}")
-    public ResponseEntity<ApiResponse<Void>> archive(
+    public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable String slug,
             @AuthenticationPrincipal UserDetails principal) {
         User user = getUser(principal);
-        eventService.archive(slug, user.getOrgId());
-        return ResponseEntity.ok(ApiResponse.ok("Event archived", null));
+        eventService.softDelete(slug, user.getOrgId());
+        return ResponseEntity.ok(ApiResponse.ok("Event moved to history", null));
+    }
+
+    /** Hard delete — permanently removes event and all uploaded media from storage. */
+    @DeleteMapping("/{slug}/permanent")
+    public ResponseEntity<ApiResponse<Void>> permanentDelete(
+            @PathVariable String slug,
+            @AuthenticationPrincipal UserDetails principal) {
+        User user = getUser(principal);
+        eventService.hardDelete(slug, user.getOrgId());
+        return ResponseEntity.ok(ApiResponse.ok("Event permanently deleted", null));
     }
 
     private User getUser(UserDetails principal) {

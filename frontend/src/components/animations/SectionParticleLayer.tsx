@@ -1,33 +1,34 @@
-import { useMemo } from 'react'
+import { useEffect, useRef } from 'react'
 
 // ── Particle catalogue ─────────────────────────────────────────────────────────
+// emoji is used both as the UI button icon (PropEditor) and as the drawn symbol.
+// No SVG assets needed — emoji are built-in system fonts, instant render.
 
 export const SECTION_PARTICLES = [
-  { id: 'none',    label: 'None',      emoji: '🚫', src: '' },
-  { id: 'flower',  label: 'Flowers',   emoji: '🌸', src: '/assets/particles/flower.svg' },
-  { id: 'flower2', label: 'Flowers 2', emoji: '🌺', src: '/assets/particles/flower2.svg' },
-  { id: 'flower3', label: 'Flowers 3', emoji: '🌹', src: '/assets/particles/flower3.svg' },
-  { id: 'flower4', label: 'Flower 4',  emoji: '💐', src: '/assets/particles/flower4.svg' },
-  { id: 'flower6', label: 'Flower 6',  emoji: '🌼', src: '/assets/particles/flower6.svg' },
-  { id: 'flower7', label: 'Flower 7',  emoji: '🌻', src: '/assets/particles/flower7.svg' },
-  { id: 'baloon',  label: 'Balloons',  emoji: '🎈', src: '/assets/particles/baloon.svg' },
-  { id: 'ring',    label: 'Rings',     emoji: '💍', src: '/assets/particles/ring.svg' },
+  { id: 'none',    label: 'None',      emoji: '🚫' },
+  { id: 'flower',  label: 'Flowers',   emoji: '🌸' },
+  { id: 'flower2', label: 'Flowers 2', emoji: '🌺' },
+  { id: 'flower3', label: 'Flowers 3', emoji: '🌹' },
+  { id: 'flower4', label: 'Flower 4',  emoji: '💐' },
+  { id: 'flower6', label: 'Flower 6',  emoji: '🌼' },
+  { id: 'flower7', label: 'Flower 7',  emoji: '🌻' },
+  { id: 'baloon',  label: 'Balloons',  emoji: '🎈' },
+  { id: 'ring',    label: 'Rings',     emoji: '💍' },
 ]
 
-// ── Size map ───────────────────────────────────────────────────────────────────
+// ── Maps ───────────────────────────────────────────────────────────────────────
 
 const SIZE_MAP: Record<'small' | 'medium' | 'large', number> = {
-  small:  40,
-  medium: 60,
-  large:  80,
+  small:  32,
+  medium: 48,
+  large:  68,
 }
 
-// ── Speed → duration multiplier ────────────────────────────────────────────────
-
-const SPEED_MULTIPLIER: Record<'slow' | 'normal' | 'fast', number> = {
-  slow:   1.6,
-  normal: 1.0,
-  fast:   0.55,
+// pixels per frame at ~60 fps
+const SPEED_MAP: Record<'slow' | 'normal' | 'fast', number> = {
+  slow:   0.55,
+  normal: 1.1,
+  fast:   2.2,
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -40,15 +41,7 @@ interface Props {
   size?: 'small' | 'medium' | 'large'
 }
 
-interface ParticleConfig {
-  left: string
-  delay: number
-  duration: number
-  driftDuration: number
-  size: number
-}
-
-// ── Component ──────────────────────────────────────────────────────────────────
+// ── Public component ───────────────────────────────────────────────────────────
 
 export function SectionParticleLayer({
   particleId,
@@ -57,16 +50,13 @@ export function SectionParticleLayer({
   speed = 'normal',
   size = 'medium',
 }: Props) {
-  // Return nothing for 'none' or empty
   if (!particleId || particleId === 'none') return null
-
-  // Find the SVG source
   const entry = SECTION_PARTICLES.find((p) => p.id === particleId)
-  if (!entry || !entry.src) return null
+  if (!entry || entry.id === 'none') return null
 
   return (
-    <SectionParticleLayerInner
-      src={entry.src}
+    <ParticleCanvas
+      symbol={entry.emoji}
       count={count}
       opacity={opacity}
       speed={speed}
@@ -75,83 +65,124 @@ export function SectionParticleLayer({
   )
 }
 
-// Separated so hooks run unconditionally (no early return before useMemo)
-function SectionParticleLayerInner({
-  src,
+// ── Canvas particle engine ─────────────────────────────────────────────────────
+
+interface Particle {
+  x: number
+  y: number
+  rot: number
+  rotSpeed: number
+  fallSpeed: number
+  driftAmp: number
+  driftPhase: number
+}
+
+function ParticleCanvas({
+  symbol,
   count,
   opacity,
   speed,
   size,
 }: {
-  src: string
+  symbol: string
   count: number
   opacity: number
   speed: 'slow' | 'normal' | 'fast'
   size: 'small' | 'medium' | 'large'
 }) {
-  const pixelSize   = SIZE_MAP[size]
-  const speedMul    = SPEED_MULTIPLIER[speed]
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Generate stable particle configs — deterministic pseudo-random from index
-  const particles = useMemo<ParticleConfig[]>(
-    () =>
-      Array.from({ length: count }, (_, i) => {
-        const baseDuration = (6 + (i * 1.3) % 6) * speedMul
-        return {
-          left:         `${(i * 8.3 + 3.7) % 95}%`,
-          delay:        (i * 0.8) % 8,
-          duration:     baseDuration,
-          driftDuration: baseDuration / 3,
-          size:         pixelSize,
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const pixelSize  = SIZE_MAP[size]
+    const pxPerFrame = SPEED_MAP[speed]
+
+    // Sync canvas pixel dimensions to its CSS-laid-out size (parent section)
+    const syncSize = () => {
+      const parent = canvas.parentElement
+      if (!parent) return
+      canvas.width  = parent.offsetWidth  || 320
+      canvas.height = parent.offsetHeight || 400
+    }
+    syncSize()
+
+    const ro = new ResizeObserver(syncSize)
+    if (canvas.parentElement) ro.observe(canvas.parentElement)
+
+    // Create particles with deterministic pseudo-random starting positions
+    // spread across the full section height so they're visible immediately.
+    const makeParticles = (): Particle[] =>
+      Array.from({ length: count }, (_, i) => ({
+        x:          ((i * 97  + 37) % 100) / 100 * canvas.width,
+        y:          ((i * 73  + 11) % 100) / 100 * canvas.height,
+        rot:         (i * 0.7) % (Math.PI * 2),
+        rotSpeed:    0.010 + (i % 5) * 0.004,
+        fallSpeed:   pxPerFrame * (0.75 + (i % 7) * 0.08),
+        driftAmp:    16 + (i % 4) * 7,
+        driftPhase:  (i * 1.3) % (Math.PI * 2),
+      }))
+
+    const particles = makeParticles()
+
+    let frame = 0
+    let animId: number
+
+    const draw = () => {
+      animId = requestAnimationFrame(draw)
+      frame++
+
+      const w = canvas.width
+      const h = canvas.height
+      if (!w || !h) return
+
+      ctx.clearRect(0, 0, w, h)
+      ctx.font         = `${pixelSize}px serif`
+      ctx.textAlign    = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.globalAlpha  = opacity
+
+      for (const p of particles) {
+        const driftX = Math.sin(frame * 0.018 + p.driftPhase) * p.driftAmp
+
+        ctx.save()
+        ctx.translate(p.x + driftX, p.y)
+        ctx.rotate(p.rot)
+        ctx.fillText(symbol, 0, 0)
+        ctx.restore()
+
+        p.y   += p.fallSpeed
+        p.rot += p.rotSpeed
+
+        // Loop back to top when particle exits the bottom
+        if (p.y > h + pixelSize) {
+          p.y = -pixelSize - Math.random() * 40
+          p.x = Math.random() * w
         }
-      }),
-    [count, pixelSize, speedMul],
-  )
+      }
+    }
+
+    animId = requestAnimationFrame(draw)
+    return () => {
+      cancelAnimationFrame(animId)
+      ro.disconnect()
+    }
+  }, [symbol, count, opacity, speed, size])
 
   return (
-    <>
-      <style>{`
-        @keyframes sdp-fall {
-          from { transform: translateY(-80px) rotate(0deg); }
-          to   { transform: translateY(calc(100% + 80px)) rotate(360deg); }
-        }
-        @keyframes sdp-drift {
-          0%, 100% { margin-left: 0px; }
-          50%       { margin-left: 28px; }
-        }
-      `}</style>
-
-      <div
-        style={{
-          position:      'absolute',
-          inset:         0,
-          pointerEvents: 'none',
-          overflow:      'hidden',
-          zIndex:        1,
-        }}
-      >
-        {particles.map((p, i) => (
-          <img
-            key={i}
-            src={src}
-            alt=""
-            draggable={false}
-            style={{
-              position:  'absolute',
-              top:       '-80px',
-              left:      p.left,
-              width:     p.size,
-              height:    p.size,
-              opacity,
-              userSelect: 'none',
-              animation: [
-                `sdp-fall ${p.duration}s linear ${p.delay}s infinite`,
-                `sdp-drift ${p.driftDuration}s ease-in-out ${p.delay}s alternate infinite`,
-              ].join(', '),
-            }}
-          />
-        ))}
-      </div>
-    </>
+    <canvas
+      ref={canvasRef}
+      style={{
+        position:      'absolute',
+        inset:         0,
+        width:         '100%',
+        height:        '100%',
+        pointerEvents: 'none',
+        zIndex:        1,
+      }}
+    />
   )
 }
