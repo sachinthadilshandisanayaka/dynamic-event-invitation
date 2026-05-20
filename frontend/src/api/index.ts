@@ -130,7 +130,14 @@ export const mediaApi = {
     api.get(`/media/events/${slug}`).then((r) => r.data.data),
   upload: async (eventSlug: string, file: File): Promise<string> => {
     const { presignedUrl, cdnUrl } = await mediaApi.presign(eventSlug, file.name, file.type)
-    await fetch(presignedUrl, {
+    // Rewrite MinIO's direct HTTP URL to the Vercel proxy URL so the browser
+    // uploads over HTTPS (Vercel edge forwards the PUT to MinIO server-side).
+    const minioServer = import.meta.env.VITE_MINIO_SERVER_URL || ''
+    const proxyBase = import.meta.env.VITE_API_URL || ''
+    const uploadUrl = minioServer && proxyBase
+      ? presignedUrl.replace(minioServer, proxyBase)
+      : presignedUrl
+    await fetch(uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': file.type },
       body: file,
