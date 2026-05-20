@@ -1,19 +1,19 @@
 import { useEffect, useRef } from 'react'
 
 // ── Particle catalogue ─────────────────────────────────────────────────────────
-// emoji is used both as the UI button icon (PropEditor) and as the drawn symbol.
-// No SVG assets needed — emoji are built-in system fonts, instant render.
+// src: optimised 128×128 PNG (5–17 KB each, converted from original SVGs)
+// emoji: fallback drawn if the image fails to load
 
 export const SECTION_PARTICLES = [
-  { id: 'none',    label: 'None',      emoji: '🚫' },
-  { id: 'flower',  label: 'Flowers',   emoji: '🌸' },
-  { id: 'flower2', label: 'Flowers 2', emoji: '🌺' },
-  { id: 'flower3', label: 'Flowers 3', emoji: '🌹' },
-  { id: 'flower4', label: 'Flower 4',  emoji: '💐' },
-  { id: 'flower6', label: 'Flower 6',  emoji: '🌼' },
-  { id: 'flower7', label: 'Flower 7',  emoji: '🌻' },
-  { id: 'baloon',  label: 'Balloons',  emoji: '🎈' },
-  { id: 'ring',    label: 'Rings',     emoji: '💍' },
+  { id: 'none',    label: 'None',      emoji: '🚫', src: '' },
+  { id: 'flower',  label: 'Flowers',   emoji: '🌸', src: '/assets/particles/flower.png' },
+  { id: 'flower2', label: 'Flowers 2', emoji: '🌺', src: '/assets/particles/flower2.png' },
+  { id: 'flower3', label: 'Flowers 3', emoji: '🌹', src: '/assets/particles/flower3.png' },
+  { id: 'flower4', label: 'Flower 4',  emoji: '💐', src: '/assets/particles/flower4.png' },
+  { id: 'flower6', label: 'Flower 6',  emoji: '🌼', src: '/assets/particles/flower6.png' },
+  { id: 'flower7', label: 'Flower 7',  emoji: '🌻', src: '/assets/particles/flower7.png' },
+  { id: 'baloon',  label: 'Balloons',  emoji: '🎈', src: '/assets/particles/baloon.png' },
+  { id: 'ring',    label: 'Rings',     emoji: '💍', src: '/assets/particles/ring.png' },
 ]
 
 // ── Maps ───────────────────────────────────────────────────────────────────────
@@ -56,7 +56,8 @@ export function SectionParticleLayer({
 
   return (
     <ParticleCanvas
-      symbol={entry.emoji}
+      src={entry.src}
+      fallbackEmoji={entry.emoji}
       count={count}
       opacity={opacity}
       speed={speed}
@@ -78,13 +79,15 @@ interface Particle {
 }
 
 function ParticleCanvas({
-  symbol,
+  src,
+  fallbackEmoji,
   count,
   opacity,
   speed,
   size,
 }: {
-  symbol: string
+  src: string
+  fallbackEmoji: string
   count: number
   opacity: number
   speed: 'slow' | 'normal' | 'fast'
@@ -101,7 +104,7 @@ function ParticleCanvas({
     const pixelSize  = SIZE_MAP[size]
     const pxPerFrame = SPEED_MAP[speed]
 
-    // Sync canvas pixel dimensions to its CSS-laid-out size (parent section)
+    // Sync canvas pixel dimensions to parent section size
     const syncSize = () => {
       const parent = canvas.parentElement
       if (!parent) return
@@ -113,8 +116,7 @@ function ParticleCanvas({
     const ro = new ResizeObserver(syncSize)
     if (canvas.parentElement) ro.observe(canvas.parentElement)
 
-    // Create particles with deterministic pseudo-random starting positions
-    // spread across the full section height so they're visible immediately.
+    // Deterministic particle positions spread across full section height
     const makeParticles = (): Particle[] =>
       Array.from({ length: count }, (_, i) => ({
         x:          ((i * 97  + 37) % 100) / 100 * canvas.width,
@@ -131,46 +133,66 @@ function ParticleCanvas({
     let frame = 0
     let animId: number
 
-    const draw = () => {
-      animId = requestAnimationFrame(draw)
-      frame++
+    // Try loading the PNG image; fall back to emoji text if it errors
+    const img = new Image()
+    let useImage = false
 
-      const w = canvas.width
-      const h = canvas.height
-      if (!w || !h) return
+    const startLoop = () => {
+      const draw = () => {
+        animId = requestAnimationFrame(draw)
+        frame++
 
-      ctx.clearRect(0, 0, w, h)
-      ctx.font         = `${pixelSize}px serif`
-      ctx.textAlign    = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.globalAlpha  = opacity
+        const w = canvas.width
+        const h = canvas.height
+        if (!w || !h) return
 
-      for (const p of particles) {
-        const driftX = Math.sin(frame * 0.018 + p.driftPhase) * p.driftAmp
+        ctx.clearRect(0, 0, w, h)
+        ctx.globalAlpha = opacity
 
-        ctx.save()
-        ctx.translate(p.x + driftX, p.y)
-        ctx.rotate(p.rot)
-        ctx.fillText(symbol, 0, 0)
-        ctx.restore()
+        for (const p of particles) {
+          const driftX = Math.sin(frame * 0.018 + p.driftPhase) * p.driftAmp
 
-        p.y   += p.fallSpeed
-        p.rot += p.rotSpeed
+          ctx.save()
+          ctx.translate(p.x + driftX, p.y)
+          ctx.rotate(p.rot)
 
-        // Loop back to top when particle exits the bottom
-        if (p.y > h + pixelSize) {
-          p.y = -pixelSize - Math.random() * 40
-          p.x = Math.random() * w
+          if (useImage) {
+            ctx.drawImage(img, -pixelSize / 2, -pixelSize / 2, pixelSize, pixelSize)
+          } else {
+            ctx.font         = `${pixelSize}px serif`
+            ctx.textAlign    = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(fallbackEmoji, 0, 0)
+          }
+
+          ctx.restore()
+
+          p.y   += p.fallSpeed
+          p.rot += p.rotSpeed
+
+          if (p.y > h + pixelSize) {
+            p.y = -pixelSize - Math.random() * 40
+            p.x = Math.random() * w
+          }
         }
       }
+
+      animId = requestAnimationFrame(draw)
     }
 
-    animId = requestAnimationFrame(draw)
+    if (src) {
+      img.onload  = () => { useImage = true;  startLoop() }
+      img.onerror = () => { useImage = false; startLoop() }
+      img.src = src
+    } else {
+      startLoop()
+    }
+
     return () => {
       cancelAnimationFrame(animId)
       ro.disconnect()
     }
-  }, [symbol, count, opacity, speed, size])
+  }, [src, fallbackEmoji, count, opacity, speed, size])
 
   return (
     <canvas
