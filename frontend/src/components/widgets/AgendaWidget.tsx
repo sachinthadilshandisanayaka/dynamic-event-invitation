@@ -357,12 +357,14 @@ function CardsCarouselView({
     return () => el.removeEventListener('scroll', handle)
   }, [items])
 
-  // Smooth scroll to a card by index
+  // Smooth scroll to a card by index using GSAP (avoids browser scroll-snap conflict)
   const scrollTo = (idx: number) => {
     const el = scrollRef.current
     if (!el) return
     const card = el.querySelectorAll<HTMLElement>('[data-card]')[idx]
-    card?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    if (!card) return
+    const target = card.offsetLeft - el.clientWidth / 2 + card.offsetWidth / 2
+    gsap.to(el, { scrollLeft: target, duration: 0.5, ease: 'power2.out', overwrite: true })
   }
 
   // Entrance animation for the whole carousel
@@ -435,6 +437,7 @@ function CardsCarouselView({
                 flexDirection: 'column',
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
+                willChange: 'transform',
               } as React.CSSProperties}
             >
               {/* Time range */}
