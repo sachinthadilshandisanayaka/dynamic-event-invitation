@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "http://95.216.188.135:8090/api/:path*" },
+    { "source": "/event-media/:path*", "destination": "http://95.216.188.135:9000/event-media/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

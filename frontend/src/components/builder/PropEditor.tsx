@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useBuilderStore } from '../../store/builderStore'
 import type { WidgetDefinition } from '../../types'
 import { mediaApi } from '../../api'
-import { Upload, X, Loader2, Image, Type, ChevronDown, ChevronUp, Plus, GripVertical } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Upload, X, Loader2, Image, Type, Move, ChevronDown, ChevronUp, Plus, GripVertical, AlignLeft, AlignCenter, AlignRight, List, Sparkles } from 'lucide-react'
 import { ensureGoogleFont } from '../../lib/googleFonts'
+import { SECTION_PARTICLES } from '../animations/SectionParticleLayer'
 
 interface Props {
   widgets: WidgetDefinition[]
@@ -64,10 +66,19 @@ const GAP_OPTIONS = [
 export function PropEditor({ widgets, slug }: Props) {
   const { sections, selectedId, updateSection } = useBuilderStore()
   const [uploading, setUploading] = useState<string | null>(null)
-  const [sectionOpen, setSectionOpen] = useState(true)
-  const [typoOpen, setTypoOpen]       = useState(false)
-  const [contentOpen, setContentOpen] = useState(true)
-  const [galleryOpen, setGalleryOpen] = useState(true)
+  const [sectionOpen, setSectionOpen]   = useState(true)
+  const [typoOpen, setTypoOpen]         = useState(false)
+  const [particleOpen, setParticleOpen] = useState(false)
+  const [posOpen, setPosOpen]           = useState(false)
+  const [posTab, setPosTab]             = useState<'desktop' | 'mobile'>('desktop')
+  const [contentOpen, setContentOpen]   = useState(true)
+  const [galleryOpen, setGalleryOpen]   = useState(true)
+
+  // Media assets for storage-aware deletion
+  const { data: mediaAssets = [] } = useQuery({
+    queryKey: ['media', slug],
+    queryFn: () => mediaApi.listByEvent(slug),
+  })
 
   const section    = sections.find((s) => s.id === selectedId)
   const widgetDef  = widgets.find((w) => w.type === section?.type)
@@ -89,6 +100,25 @@ export function PropEditor({ widgets, slug }: Props) {
   }
 
   const update = (key: string, value: unknown) => updateSection(section.id, { [key]: value })
+
+  // ── Storage-aware asset removal ───────────────────────────────────────────
+
+  const findAssetId = (url: string): string | null => {
+    const asset = (mediaAssets as { cdnUrl: string; id: string }[]).find((a) => a.cdnUrl === url)
+    return asset?.id ?? null
+  }
+
+  const handleMediaRemove = async (key: string, url: string) => {
+    update(key, '')  // remove from section props immediately
+    const assetId = findAssetId(url)
+    if (assetId) {
+      try {
+        await mediaApi.delete(assetId)
+      } catch (e) {
+        console.warn('Storage delete failed:', e)
+      }
+    }
+  }
 
   const handleMediaUpload = async (key: string, file: File) => {
     setUploading(key)
@@ -179,10 +209,10 @@ export function PropEditor({ widgets, slug }: Props) {
 
       case 'richtext':
         return (
-          <textarea className="prop-input resize-none" rows={6}
+          <RichTextEditor
             value={(value as string) || ''}
-            onChange={(e) => update(fieldKey, e.target.value)}
-            placeholder="Enter HTML or plain text..." />
+            onChange={(v) => update(fieldKey, v)}
+          />
         )
 
       case 'agenda-list':
@@ -246,7 +276,8 @@ export function PropEditor({ widgets, slug }: Props) {
             {!!section.props.bgImage && (
               <div className="relative mb-2">
                 <img src={section.props.bgImage as string} alt="" className="w-full h-28 object-cover rounded-lg" />
-                <button onClick={() => update('bgImage', '')}
+                <button
+                  onClick={() => handleMediaRemove('bgImage', section.props.bgImage as string)}
                   className="absolute top-1 right-1 p-1 bg-white rounded-full shadow hover:bg-red-50">
                   <X size={12} />
                 </button>
@@ -338,6 +369,212 @@ export function PropEditor({ widgets, slug }: Props) {
         </div>
       </Accordion>
 
+      {/* ── Background Particles ──────────────────────────────────────────── */}
+      <Accordion
+        label="Background Particles"
+        icon={<Sparkles size={13} />}
+        open={particleOpen}
+        onToggle={() => setParticleOpen((v) => !v)}
+      >
+        <div className="space-y-3">
+          {/* Particle type grid */}
+          <div>
+            <label className="prop-label mb-1.5 block">Particle Type</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {SECTION_PARTICLES.map((opt) => {
+                const selected = (section.props.bgParticle as string || 'none') === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => update('bgParticle', opt.id)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                      selected
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50'
+                    }`}
+                  >
+                    <span>{opt.emoji}</span>
+                    <span className="truncate">{opt.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Sub-controls when a particle is selected */}
+          {!!(section.props.bgParticle) && section.props.bgParticle !== 'none' && (
+            <>
+              {/* Count */}
+              <div>
+                <label className="prop-label flex justify-between">
+                  <span>Count</span>
+                  <span className="font-mono text-indigo-600">{(section.props.bgParticleCount as number) || 12}</span>
+                </label>
+                <input
+                  type="range" min="5" max="25" step="1"
+                  value={(section.props.bgParticleCount as number) || 12}
+                  onChange={(e) => update('bgParticleCount', parseInt(e.target.value))}
+                  className="w-full h-1.5 accent-indigo-600"
+                />
+              </div>
+
+              {/* Opacity */}
+              <div>
+                <label className="prop-label flex justify-between">
+                  <span>Opacity</span>
+                  <span className="font-mono text-indigo-600">
+                    {Math.round(((section.props.bgParticleOpacity as number) ?? 0.7) * 100)}%
+                  </span>
+                </label>
+                <input
+                  type="range" min="0.1" max="1.0" step="0.05"
+                  value={(section.props.bgParticleOpacity as number) ?? 0.7}
+                  onChange={(e) => update('bgParticleOpacity', parseFloat(e.target.value))}
+                  className="w-full h-1.5 accent-indigo-600"
+                />
+              </div>
+
+              {/* Speed */}
+              <div>
+                <label className="prop-label">Speed</label>
+                <div className="flex gap-1.5">
+                  {(['slow', 'normal', 'fast'] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => update('bgParticleSpeed', s)}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-lg border capitalize transition-colors ${
+                        ((section.props.bgParticleSpeed as string) || 'normal') === s
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                      }`}
+                    >
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Size */}
+              <div>
+                <label className="prop-label">Size</label>
+                <div className="flex gap-1.5">
+                  {(['small', 'medium', 'large'] as const).map((sz) => (
+                    <button
+                      key={sz}
+                      onClick={() => update('bgParticleSize', sz)}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-lg border capitalize transition-colors ${
+                        ((section.props.bgParticleSize as string) || 'medium') === sz
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                      }`}
+                    >
+                      {sz.charAt(0).toUpperCase() + sz.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </Accordion>
+
+      {/* ── Text Position (hero only) ─────────────────────────────────────── */}
+      {isHero && (
+        <Accordion
+          label="Text Position"
+          icon={<Move size={13} />}
+          open={posOpen}
+          onToggle={() => setPosOpen((v) => !v)}
+        >
+          <div className="space-y-3">
+            {/* Enable / disable custom positioning */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-600">Custom position</span>
+              <button
+                onClick={() => {
+                  const enabled = section.props.titleX !== undefined
+                  if (enabled) {
+                    updateSection(section.id, {
+                      titleX: undefined, titleY: undefined,
+                      subtitleX: undefined, subtitleY: undefined,
+                      titleXMobile: undefined, titleYMobile: undefined,
+                      subtitleXMobile: undefined, subtitleYMobile: undefined,
+                    })
+                  } else {
+                    updateSection(section.id, {
+                      titleX: 50, titleY: 40,
+                      subtitleX: 50, subtitleY: 62,
+                    })
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${section.props.titleX !== undefined ? 'bg-indigo-600' : 'bg-gray-200'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${section.props.titleX !== undefined ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {section.props.titleX !== undefined && (
+              <>
+                {/* Desktop / Mobile tabs */}
+                <div className="flex rounded-lg bg-gray-100 p-0.5 text-xs">
+                  <button
+                    className={`flex-1 py-1 rounded-md font-medium transition-all ${posTab === 'desktop' ? 'bg-white shadow text-indigo-600' : 'text-gray-500'}`}
+                    onClick={() => setPosTab('desktop')}
+                  >
+                    Desktop
+                  </button>
+                  <button
+                    className={`flex-1 py-1 rounded-md font-medium transition-all ${posTab === 'mobile' ? 'bg-white shadow text-indigo-600' : 'text-gray-500'}`}
+                    onClick={() => setPosTab('mobile')}
+                  >
+                    Mobile
+                  </button>
+                </div>
+
+                {posTab === 'desktop' ? (
+                  <>
+                    <PositionSliders
+                      label="Title"
+                      x={(section.props.titleX as number) ?? 50}
+                      y={(section.props.titleY as number) ?? 40}
+                      onX={(v) => update('titleX', v)}
+                      onY={(v) => update('titleY', v)}
+                    />
+                    <PositionSliders
+                      label="Subtitle"
+                      x={(section.props.subtitleX as number) ?? 50}
+                      y={(section.props.subtitleY as number) ?? 62}
+                      onX={(v) => update('subtitleX', v)}
+                      onY={(v) => update('subtitleY', v)}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[11px] text-gray-400 leading-snug">
+                      Defaults to desktop values. Adjust only if mobile needs a different position.
+                    </p>
+                    <PositionSliders
+                      label="Title"
+                      x={(section.props.titleXMobile as number) ?? (section.props.titleX as number) ?? 50}
+                      y={(section.props.titleYMobile as number) ?? (section.props.titleY as number) ?? 40}
+                      onX={(v) => update('titleXMobile', v)}
+                      onY={(v) => update('titleYMobile', v)}
+                    />
+                    <PositionSliders
+                      label="Subtitle"
+                      x={(section.props.subtitleXMobile as number) ?? (section.props.subtitleX as number) ?? 50}
+                      y={(section.props.subtitleYMobile as number) ?? (section.props.subtitleY as number) ?? 62}
+                      onX={(v) => update('subtitleXMobile', v)}
+                      onY={(v) => update('subtitleYMobile', v)}
+                    />
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </Accordion>
+      )}
+
       {/* ── Gallery Image Manager ─────────────────────────────────────────── */}
       {isGallery && (
         <Accordion
@@ -350,6 +587,7 @@ export function PropEditor({ widgets, slug }: Props) {
             images={(section.props.images as string[]) || []}
             onChange={(imgs) => update('images', imgs)}
             slug={slug}
+            mediaAssets={mediaAssets as { cdnUrl: string; id: string }[]}
           />
 
           {/* Gallery layout controls */}
@@ -522,15 +760,30 @@ function GalleryImageManager({
   images,
   onChange,
   slug,
+  mediaAssets = [],
 }: {
   images: string[]
   onChange: (imgs: string[]) => void
   slug: string
+  mediaAssets?: { cdnUrl: string; id: string }[]
 }) {
   const [uploading, setUploading] = useState(false)
   const [urlInput, setUrlInput]   = useState('')
 
-  const remove = (i: number) => onChange(images.filter((_, idx) => idx !== i))
+  const removeWithStorageCleanup = async (i: number) => {
+    const url = images[i]
+    onChange(images.filter((_, idx) => idx !== i))
+    const asset = mediaAssets.find((a) => a.cdnUrl === url)
+    if (asset?.id) {
+      try {
+        await mediaApi.delete(asset.id)
+      } catch (e) {
+        console.warn('Gallery storage delete failed:', e)
+      }
+    }
+  }
+
+  const remove = (i: number) => { void removeWithStorageCleanup(i) }
 
   const addUrl = () => {
     const url = urlInput.trim()
@@ -624,6 +877,128 @@ function GalleryImageManager({
       {images.length > 0 && (
         <p className="text-xs text-gray-400 text-center">{images.length} image{images.length !== 1 ? 's' : ''}</p>
       )}
+    </div>
+  )
+}
+
+// ── Rich text WYSIWYG editor ──────────────────────────────────────────────────
+
+function RichTextEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const editorRef = useRef<HTMLDivElement>(null)
+
+  // Sync content when value changes externally (e.g. user selects a different section).
+  // Skipped when equal so that normal typing doesn't reset the cursor.
+  useEffect(() => {
+    const el = editorRef.current
+    if (el && el.innerHTML !== value) {
+      el.innerHTML = value || ''
+    }
+  }, [value])
+
+  // onMouseDown + preventDefault keeps editor focus (and text selection) during toolbar clicks.
+  const exec = (cmd: string) => {
+    editorRef.current?.focus()
+    document.execCommand(cmd, false, undefined)
+    if (editorRef.current) onChange(editorRef.current.innerHTML)
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden focus-within:border-indigo-400 focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.12)]">
+      {/* Toolbar */}
+      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-gray-50 border-b border-gray-200 flex-wrap">
+        <RteButton onClick={() => exec('bold')} title="Bold">
+          <span className="font-bold text-[11px] leading-none w-4 text-center">B</span>
+        </RteButton>
+        <RteButton onClick={() => exec('italic')} title="Italic">
+          <span className="italic text-[11px] leading-none w-4 text-center">I</span>
+        </RteButton>
+        <RteButton onClick={() => exec('underline')} title="Underline">
+          <span className="underline text-[11px] leading-none w-4 text-center">U</span>
+        </RteButton>
+        <div className="w-px h-4 bg-gray-200 mx-0.5" />
+        <RteButton onClick={() => exec('justifyLeft')} title="Align left">
+          <AlignLeft size={12} />
+        </RteButton>
+        <RteButton onClick={() => exec('justifyCenter')} title="Align center">
+          <AlignCenter size={12} />
+        </RteButton>
+        <RteButton onClick={() => exec('justifyRight')} title="Align right">
+          <AlignRight size={12} />
+        </RteButton>
+        <div className="w-px h-4 bg-gray-200 mx-0.5" />
+        <RteButton onClick={() => exec('insertUnorderedList')} title="Bullet list">
+          <List size={12} />
+        </RteButton>
+      </div>
+
+      {/* Editable content area */}
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        className="min-h-[120px] p-3 text-sm leading-relaxed focus:outline-none"
+        style={{ wordBreak: 'break-word' }}
+        onInput={() => {
+          if (editorRef.current) onChange(editorRef.current.innerHTML)
+        }}
+      />
+    </div>
+  )
+}
+
+function RteButton({ onClick, title, children }: {
+  onClick: () => void
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onMouseDown={(e) => { e.preventDefault(); onClick() }}
+      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-600 hover:text-gray-900 transition-colors flex-shrink-0"
+    >
+      {children}
+    </button>
+  )
+}
+
+// ── Position sliders (X / Y percentage) ──────────────────────────────────────
+
+function PositionSliders({ label, x, y, onX, onY }: {
+  label: string
+  x: number
+  y: number
+  onX: (v: number) => void
+  onY: (v: number) => void
+}) {
+  return (
+    <div className="space-y-2 p-2.5 bg-gray-50 rounded-lg">
+      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
+      <div>
+        <label className="prop-label flex justify-between">
+          <span>X — left / right</span>
+          <span className="font-mono text-indigo-600">{x}%</span>
+        </label>
+        <input
+          type="range" min="0" max="100" step="1"
+          value={x}
+          onChange={(e) => onX(Number(e.target.value))}
+          className="w-full h-1.5 accent-indigo-600"
+        />
+      </div>
+      <div>
+        <label className="prop-label flex justify-between">
+          <span>Y — top / bottom</span>
+          <span className="font-mono text-indigo-600">{y}%</span>
+        </label>
+        <input
+          type="range" min="0" max="100" step="1"
+          value={y}
+          onChange={(e) => onY(Number(e.target.value))}
+          className="w-full h-1.5 accent-indigo-600"
+        />
+      </div>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Clock, MapPin, User, ChevronDown } from 'lucide-react'
+import { MapPin, User, ChevronDown } from 'lucide-react'
 import { gsap, ScrollTrigger } from '../../lib/gsap-init'
 import { AnimatedText } from '../animations/AnimatedText'
 import { useAnimationDisabled } from '../../contexts/AnimationContext'
@@ -48,11 +48,6 @@ function hexToRgba(hex: string, alpha: number) {
   return `rgba(${r},${g},${b},${alpha})`
 }
 
-function formatTimeRange(time: string, endTime?: string) {
-  if (!endTime) return time
-  return `${time} – ${endTime}`
-}
-
 // ── Sample data shown when no items exist ────────────────────────────────────
 
 const SAMPLE_ITEMS: AgendaItem[] = [
@@ -65,8 +60,13 @@ const SAMPLE_ITEMS: AgendaItem[] = [
 ]
 
 // ── Hook: stagger-animate direct [data-agenda-item] children on scroll ───────
+// direction: 'y' = slide up (timeline/compact), 'x' = slide from right (cards)
 
-function useItemStagger(containerRef: React.RefObject<HTMLElement | null>, deps: unknown[]) {
+function useItemStagger(
+  containerRef: React.RefObject<HTMLElement | null>,
+  deps: unknown[],
+  direction: 'x' | 'y' = 'y',
+) {
   const disabled = useAnimationDisabled()
   useEffect(() => {
     const container = containerRef.current
@@ -75,20 +75,33 @@ function useItemStagger(containerRef: React.RefObject<HTMLElement | null>, deps:
     const items = Array.from(container.querySelectorAll<HTMLElement>('[data-agenda-item]'))
     if (!items.length) return
 
-    const reset = () => gsap.set(items, { opacity: 0, y: 28 })
+    const reset = () =>
+      direction === 'x'
+        ? gsap.set(items, { opacity: 0, x: 40 })
+        : gsap.set(items, { opacity: 0, y: 28 })
     reset()
 
     const trigger = ScrollTrigger.create({
       trigger: container,
       start: 'top 86%',
       onEnter: () => {
-        gsap.to(items, {
-          opacity: 1,
-          y: 0,
-          duration: 0.65,
-          ease: 'power3.out',
-          stagger: 0.1,
-        })
+        if (direction === 'x') {
+          gsap.to(items, {
+            opacity: 1,
+            x: 0,
+            duration: 0.55,
+            ease: 'power3.out',
+            stagger: 0.08,
+          })
+        } else {
+          gsap.to(items, {
+            opacity: 1,
+            y: 0,
+            duration: 0.65,
+            ease: 'power3.out',
+            stagger: 0.1,
+          })
+        }
       },
       onLeaveBack: reset,
     })
@@ -98,7 +111,7 @@ function useItemStagger(containerRef: React.RefObject<HTMLElement | null>, deps:
       gsap.set(items, { clearProps: 'all' })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, disabled])
+  }, [...deps, disabled, direction])
 }
 
 // ── Timeline Style ─────────────────────────────────────────────────────────────
@@ -262,13 +275,12 @@ function TimelineView({
   )
 }
 
-// ── Cards Style ────────────────────────────────────────────────────────────────
+// ── Cards Style — horizontal row layout ───────────────────────────────────────
 
 function CardItem({
   item,
   accentColor,
   textColor,
-  bgColor,
   categoryPalette,
 }: {
   item: AgendaItem
@@ -277,78 +289,89 @@ function CardItem({
   bgColor: string
   categoryPalette?: { bg: string; text: string; border: string }
 }) {
-  const cardBg     = hexToRgba(accentColor, 0.04)
-  const cardBorder = hexToRgba(accentColor, 0.12)
-
   return (
     <div
       data-agenda-item
-      className="relative rounded-xl border overflow-hidden transition-shadow hover:shadow-md"
+      className="flex items-stretch rounded-xl overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
       style={{
-        backgroundColor: cardBg,
-        borderColor: cardBorder,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        borderColor: hexToRgba(accentColor, 0.15),
+        backgroundColor: hexToRgba(accentColor, 0.03),
       }}
     >
+      {/* Left: accent bar + time block */}
       <div
-        className="h-0.5 w-full absolute top-0 left-0"
-        style={{ backgroundColor: accentColor, opacity: 0.5 }}
-      />
-
-      <div className="p-4 pt-5">
-        <div
-          className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full mb-3"
-          style={{
-            backgroundColor: hexToRgba(accentColor, 0.12),
-            color: accentColor,
-          }}
+        className="flex flex-col items-center justify-center gap-1 shrink-0"
+        style={{
+          width: 72,
+          backgroundColor: hexToRgba(accentColor, 0.1),
+          borderRight: `3px solid ${accentColor}`,
+        }}
+      >
+        <span
+          className="text-[11px] font-bold text-center leading-tight px-1"
+          style={{ color: accentColor }}
         >
-          <Clock size={9} />
-          {formatTimeRange(item.time, item.endTime)}
-        </div>
+          {item.time}
+        </span>
+        {item.endTime && (
+          <span
+            className="text-[9px] text-center leading-tight opacity-60"
+            style={{ color: accentColor }}
+          >
+            {item.endTime}
+          </span>
+        )}
+        {item.emoji && <span className="text-base mt-0.5">{item.emoji}</span>}
+      </div>
 
-        <div className="flex items-start gap-2 mb-2">
-          {item.emoji && <span className="text-lg leading-none shrink-0">{item.emoji}</span>}
+      {/* Right: content */}
+      <div className="flex-1 min-w-0 px-4 py-3">
+        <div className="flex flex-wrap items-start gap-2 mb-1">
           <h4
-            className="font-semibold text-sm sm:text-[15px] leading-snug flex-1"
+            className="font-semibold text-sm leading-snug flex-1"
             style={{ color: textColor }}
           >
             {item.title}
           </h4>
+          {item.category && categoryPalette && (
+            <span
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0"
+              style={{
+                backgroundColor: categoryPalette.bg,
+                color: categoryPalette.text,
+                borderColor: categoryPalette.border,
+              }}
+            >
+              {item.category}
+            </span>
+          )}
         </div>
 
-        {item.category && categoryPalette && (
-          <span
-            className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border mb-2"
-            style={{
-              backgroundColor: categoryPalette.bg,
-              color: categoryPalette.text,
-              borderColor: categoryPalette.border,
-            }}
-          >
-            {item.category}
-          </span>
-        )}
-
         {item.description && (
-          <p className="text-[12px] leading-relaxed mb-3" style={{ color: textColor, opacity: 0.6 }}>
+          <p
+            className="text-[12px] leading-relaxed mb-1.5"
+            style={{ color: textColor, opacity: 0.6 }}
+          >
             {item.description}
           </p>
         )}
 
         {(item.speaker || item.location) && (
-          <div
-            className="flex flex-wrap gap-x-3 gap-y-1 pt-2.5 mt-2 border-t"
-            style={{ borderColor: hexToRgba(textColor, 0.08) }}
-          >
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
             {item.speaker && (
-              <span className="flex items-center gap-1 text-[11px]" style={{ color: textColor, opacity: 0.5 }}>
+              <span
+                className="flex items-center gap-1 text-[11px]"
+                style={{ color: textColor, opacity: 0.5 }}
+              >
                 <User size={10} />
                 {item.speaker}
               </span>
             )}
             {item.location && (
-              <span className="flex items-center gap-1 text-[11px]" style={{ color: textColor, opacity: 0.5 }}>
+              <span
+                className="flex items-center gap-1 text-[11px]"
+                style={{ color: textColor, opacity: 0.5 }}
+              >
                 <MapPin size={10} />
                 {item.location}
               </span>
@@ -374,10 +397,10 @@ function CardsView({
   allCategories: string[]
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
-  useItemStagger(containerRef, [items])
+  useItemStagger(containerRef, [items], 'x')
 
   return (
-    <div ref={containerRef} className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div ref={containerRef} className="mt-8 flex flex-col gap-3">
       {items.map((item, i) => (
         <CardItem
           key={i}
