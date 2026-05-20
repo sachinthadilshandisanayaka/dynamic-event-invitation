@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { MapPin, User, ChevronDown } from 'lucide-react'
+import { MapPin, User, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { gsap, ScrollTrigger } from '../../lib/gsap-init'
 import { AnimatedText } from '../animations/AnimatedText'
 import { useAnimationDisabled } from '../../contexts/AnimationContext'
@@ -290,30 +290,50 @@ function NavArrow({
   accentColor: string
   onClick: () => void
 }) {
+  const [hovered, setHovered] = useState(false)
+  const active = hovered && !disabled
+
   return (
     <button
       aria-label={direction === 'prev' ? 'Previous item' : 'Next item'}
       onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        width: 32,
-        height: 32,
+        width: 44,
+        height: 44,
         borderRadius: '50%',
-        border: `1.5px solid ${hexToRgba(accentColor, 0.3)}`,
-        background: 'transparent',
-        color: accentColor,
+        border: 'none',
+        background: disabled
+          ? 'rgba(0,0,0,0.05)'
+          : active
+            ? accentColor
+            : '#ffffff',
+        color: disabled
+          ? 'rgba(0,0,0,0.2)'
+          : active
+            ? '#ffffff'
+            : accentColor,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: 20,
-        lineHeight: 1,
-        cursor: disabled ? 'default' : 'pointer',
-        opacity: disabled ? 0.22 : 1,
-        transition: 'opacity 0.2s, background 0.2s',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        transition: 'background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease, transform 0.18s ease',
+        boxShadow: disabled
+          ? 'none'
+          : active
+            ? `0 6px 24px ${hexToRgba(accentColor, 0.38)}`
+            : '0 2px 14px rgba(0,0,0,0.13)',
+        transform: active ? 'scale(1.1)' : 'scale(1)',
         padding: 0,
         flexShrink: 0,
       }}
     >
-      {direction === 'prev' ? '‹' : '›'}
+      {direction === 'prev'
+        ? <ChevronLeft  size={20} strokeWidth={2.5} />
+        : <ChevronRight size={20} strokeWidth={2.5} />
+      }
     </button>
   )
 }
