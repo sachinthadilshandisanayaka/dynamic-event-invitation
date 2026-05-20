@@ -26,6 +26,8 @@ export function EventEditorPage() {
   const [activeTab, setActiveTab] = useState<Tab>((searchParams.get('tab') as Tab) || 'builder')
   const [showTemplates, setShowTemplates] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  const [showSavePublishedWarn, setShowSavePublishedWarn] = useState(false)
   const initializedRef = useRef<string | null>(null)  // tracks which slug was initialized
 
   const {
@@ -200,7 +202,13 @@ export function EventEditorPage() {
           )}
 
           <button
-            onClick={() => saveMutation.mutate()}
+            onClick={() => {
+              if (event?.status === 'PUBLISHED' && isDirty) {
+                setShowSavePublishedWarn(true)
+              } else {
+                saveMutation.mutate()
+              }
+            }}
             disabled={saveMutation.isPending || !isDirty}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50 transition-colors"
           >
@@ -208,7 +216,7 @@ export function EventEditorPage() {
           </button>
 
           <button
-            onClick={() => publishMutation.mutate()}
+            onClick={() => setShowPublishConfirm(true)}
             disabled={publishMutation.isPending}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors disabled:opacity-50 ${
               event?.status === 'PUBLISHED'
@@ -266,6 +274,81 @@ export function EventEditorPage() {
           onClose={() => setShowShare(false)}
         />
       )}
+
+      {/* Publish / Unpublish confirmation */}
+      {showPublishConfirm && (
+        <ConfirmModal
+          title={event?.status === 'PUBLISHED' ? 'Unpublish Event?' : 'Publish Event?'}
+          message={
+            event?.status === 'PUBLISHED'
+              ? 'This will hide your event from guests. They will no longer be able to view the invitation.'
+              : 'This will make your event live and visible to all guests. Ready to publish?'
+          }
+          confirmLabel={event?.status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
+          confirmClass={event?.status === 'PUBLISHED' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-600 hover:bg-green-700'}
+          onCancel={() => setShowPublishConfirm(false)}
+          onConfirm={() => {
+            setShowPublishConfirm(false)
+            publishMutation.mutate()
+          }}
+        />
+      )}
+
+      {/* Save-while-published warning */}
+      {showSavePublishedWarn && (
+        <ConfirmModal
+          title="Save Changes to Live Event?"
+          message="Your event is currently published. Saving will apply your changes immediately and guests will see the updates right away."
+          confirmLabel="Save Anyway"
+          confirmClass="bg-indigo-600 hover:bg-indigo-700"
+          onCancel={() => setShowSavePublishedWarn(false)}
+          onConfirm={() => {
+            setShowSavePublishedWarn(false)
+            saveMutation.mutate()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ConfirmModal({
+  title, message, confirmLabel, confirmClass, onCancel, onConfirm,
+}: {
+  title: string
+  message: string
+  confirmLabel: string
+  confirmClass: string
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-base font-semibold text-gray-900 mb-2">{title}</h2>
+        <p className="text-sm text-gray-500 mb-6 leading-relaxed">{message}</p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${confirmClass}`}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

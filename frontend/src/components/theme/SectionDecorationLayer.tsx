@@ -84,6 +84,35 @@ export function SectionDecorationLayer({ rules, sectionIndex, totalSections }: P
           const ruleTransform = rule.transform ?? ''
           const finalTransform = [baseTransform, ruleTransform].filter(Boolean).join(' ') || undefined
 
+          const sharedStyle: React.CSSProperties = {
+            position: 'absolute',
+            top:    posStyle.top,
+            right:  posStyle.right,
+            bottom: posStyle.bottom,
+            left:   posStyle.left,
+            transformOrigin: posStyle.transformOrigin as string,
+            transform: finalTransform,
+            width:   rule.width,
+            height:  'auto',
+            opacity: rule.opacity,
+            zIndex:  rule.zIndex ?? 2,
+            display: 'block',
+            animation: 'sdeco-fadein 1s ease forwards',
+            pointerEvents: 'none',
+          }
+
+          if (rule.svgContent) {
+            return (
+              <div
+                key={rule.id}
+                className={rule.hideOnMobile ? 'sdeco-mobile-hidden' : undefined}
+                style={sharedStyle}
+                // eslint-disable-next-line react/no-danger
+                dangerouslySetInnerHTML={{ __html: rule.svgContent }}
+              />
+            )
+          }
+
           return (
             <img
               key={rule.id}
@@ -92,21 +121,7 @@ export function SectionDecorationLayer({ rules, sectionIndex, totalSections }: P
               loading="lazy"
               draggable={false}
               className={rule.hideOnMobile ? 'sdeco-mobile-hidden' : undefined}
-              style={{
-                position: 'absolute',
-                top:    posStyle.top,
-                right:  posStyle.right,
-                bottom: posStyle.bottom,
-                left:   posStyle.left,
-                transformOrigin: posStyle.transformOrigin as string,
-                transform: finalTransform,
-                width:   rule.width,
-                height:  'auto',
-                opacity: rule.opacity,
-                zIndex:  rule.zIndex ?? 2,
-                display: 'block',
-                animation: 'sdeco-fadein 1s ease forwards',
-              }}
+              style={sharedStyle}
             />
           )
         })}

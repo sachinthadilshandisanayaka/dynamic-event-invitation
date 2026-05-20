@@ -7,15 +7,17 @@ export interface AnimationCollection {
   tagline: string
   emoji: string
   category: 'wedding' | 'corporate' | 'birthday' | 'universal'
-  previewColors: string[]     // [bg, accent, text] for card preview
-  loadingDuration: number     // total ms before loading screen dismisses
+  previewColors: string[]
+  loadingDuration: number
   scrollAnim: ScrollAnim
   particleType: ParticleType
   particleCount: number
   loadingBg: string
   loadingAccent: string
   loadingText: string
-  recommendedFor: string[]    // template IDs this suits best
+  recommendedFor: string[]
+  /** For video-intro type: path to video file under /public */
+  videoSrc?: string
 }
 
 export const ANIMATION_COLLECTIONS: AnimationCollection[] = [
@@ -98,6 +100,23 @@ export const ANIMATION_COLLECTIONS: AnimationCollection[] = [
     loadingAccent: '#9CA3AF',
     loadingText: '#111827',
     recommendedFor: ['minimal', 'corporate'],
+  },
+  {
+    id: 'video-intro',
+    name: 'Video Intro',
+    tagline: 'Cinematic video plays before your invitation reveals',
+    emoji: '🎬',
+    category: 'wedding',
+    previewColors: ['#0D1B2A', '#C8A96E', '#F5E6C8'],
+    loadingDuration: 12000,
+    scrollAnim: 'fade-up',
+    particleType: 'petals',
+    particleCount: 14,
+    loadingBg: '#0D1B2A',
+    loadingAccent: '#C8A96E',
+    loadingText: '#F5E6C8',
+    recommendedFor: ['wedding', 'gala'],
+    videoSrc: '/assets/wedding-intro.mp4',
   },
 ]
 

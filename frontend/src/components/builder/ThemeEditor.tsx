@@ -1,7 +1,7 @@
 import { useBuilderStore } from '../../store/builderStore'
 import { AnimationPicker } from '../animations/AnimationPicker'
 import { getAnimationIdFromTokens, setAnimationInTokens } from '../../data/animationCollections'
-import { getThemeIdFromTokens } from '../../data/themeRegistry'
+import { getThemeIdFromTokens, getTheme } from '../../data/themeRegistry'
 import { ThemePicker } from './ThemePicker'
 
 const FONTS = ['Inter', 'Playfair Display', 'Lato', 'Poppins', 'Merriweather', 'Roboto', 'Open Sans', 'Montserrat']
@@ -48,6 +48,9 @@ export function ThemeEditor({ slug: _slug }: { slug: string }) {
 
   const selectedAnimation = getAnimationIdFromTokens(t.tokens)
   const selectedThemeId   = getThemeIdFromTokens(t.tokens)
+  const registryTheme     = selectedThemeId ? getTheme(selectedThemeId) : null
+  // Show the theme's default animation when the user hasn't explicitly picked one
+  const displayedAnimation = selectedAnimation || registryTheme?.animationId || ''
 
   const handleAnimationChange = (id: string) => {
     const updatedTokens = setAnimationInTokens(t.tokens, id)
@@ -82,6 +85,30 @@ export function ThemeEditor({ slug: _slug }: { slug: string }) {
         <ThemePicker
           selectedId={selectedThemeId}
           onChange={handleThemeChange}
+        />
+      </div>
+
+      {/* ── Animation picker — always visible ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-semibold text-gray-800">🎬 Loading Animation</h3>
+          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+            Guests see this when they open the page
+          </span>
+        </div>
+        {registryTheme && !selectedAnimation && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+            Your theme includes <strong>{registryTheme.name}</strong>'s default animation.
+            Select a different one below to override it.
+          </p>
+        )}
+        <p className="text-xs text-gray-400 mb-4">
+          Choose a cinematic intro that plays before your event content reveals.
+          Click <strong>▶</strong> on any card to preview it full-screen.
+        </p>
+        <AnimationPicker
+          selected={displayedAnimation}
+          onChange={handleAnimationChange}
         />
       </div>
 
@@ -175,23 +202,6 @@ export function ThemeEditor({ slug: _slug }: { slug: string }) {
           </div>
         </div>
 
-        {/* Standalone animation picker when using custom theme */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-semibold text-gray-800">🎬 Loading Animation</h3>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-              Guests see this when they open the page
-            </span>
-          </div>
-          <p className="text-xs text-gray-400 mb-4">
-            Choose a cinematic intro that plays before your event content reveals.
-            Click <strong>▶</strong> on any card to preview it full-screen.
-          </p>
-          <AnimationPicker
-            selected={selectedAnimation}
-            onChange={handleAnimationChange}
-          />
-        </div>
       </>)}
     </div>
   )

@@ -39,6 +39,16 @@ export function LoadingScreen({ collectionId, eventTitle, onComplete }: Props) {
     return () => ctx.revert()
   }, [collectionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Video intro: full-screen video player — no GSAP needed
+  if (collectionId === 'video-intro' && collection.videoSrc) {
+    return (
+      <VideoIntroScreen
+        videoSrc={collection.videoSrc}
+        onComplete={onComplete}
+      />
+    )
+  }
+
   return (
     <div
       ref={wrapperRef}
@@ -780,6 +790,86 @@ function BlossomsOnBranch({ cx, cy, color }: { cx: number; cy: number; color: st
       })}
       <circle cx={cx} cy={cy} r="3.5" fill="#FFE0A3" opacity="0.95" />
     </g>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────
+   VIDEO INTRO — full-screen video, calls onComplete when ended
+   or after 12s safety timeout.
+───────────────────────────────────────────────────────────────*/
+
+function VideoIntroScreen({ videoSrc, onComplete }: { videoSrc: string; onComplete: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    // Safety net: dismiss after 12 s even if video doesn't fire 'ended'
+    const timer = setTimeout(onComplete, 12000)
+
+    const handleEnded = () => {
+      clearTimeout(timer)
+      // Short fade-out before calling onComplete
+      if (video.parentElement) {
+        video.parentElement.style.transition = 'opacity 0.7s ease'
+        video.parentElement.style.opacity = '0'
+        setTimeout(onComplete, 700)
+      } else {
+        onComplete()
+      }
+    }
+
+    video.addEventListener('ended', handleEnded)
+
+    // Skip on tap/click
+    const handleSkip = () => {
+      clearTimeout(timer)
+      video.removeEventListener('ended', handleEnded)
+      if (video.parentElement) {
+        video.parentElement.style.transition = 'opacity 0.4s ease'
+        video.parentElement.style.opacity = '0'
+        setTimeout(onComplete, 400)
+      } else {
+        onComplete()
+      }
+    }
+    video.parentElement?.addEventListener('click', handleSkip)
+
+    return () => {
+      clearTimeout(timer)
+      video.removeEventListener('ended', handleEnded)
+      video.parentElement?.removeEventListener('click', handleSkip)
+    }
+  }, [onComplete, videoSrc])
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        backgroundColor: '#000',
+        cursor: 'pointer',
+      }}
+      title="Tap to skip"
+    >
+      <video
+        ref={videoRef}
+        src={videoSrc}
+        autoPlay
+        muted
+        playsInline
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      />
+      {/* Skip hint */}
+      <div style={{
+        position: 'absolute', bottom: 24, right: 24,
+        color: 'rgba(255,255,255,0.5)', fontSize: 12,
+        fontFamily: "'Lato', sans-serif", letterSpacing: '0.1em',
+        pointerEvents: 'none',
+      }}>
+        Tap to skip ›
+      </div>
+    </div>
   )
 }
 

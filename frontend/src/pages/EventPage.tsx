@@ -6,6 +6,7 @@ import { analyticsApi } from '../api'
 import { ensureGoogleFontsForSections } from '../lib/googleFonts'
 import { ThemeInjector } from '../theme/ThemeInjector'
 import { SectionDecorationLayer } from '../components/theme/SectionDecorationLayer'
+import { SectionParticleLayer } from '../components/animations/SectionParticleLayer'
 import { WidgetRenderer } from '../components/widgets/WidgetRenderer'
 import { LoadingScreen } from '../components/animations/LoadingScreen'
 import { ParticleSystem } from '../components/animations/ParticleSystem'
@@ -46,18 +47,21 @@ export function EventPage() {
   const registryThemeId = getThemeIdFromTokens(themeData?.tokens)
   const registryTheme   = registryThemeId ? getTheme(registryThemeId) : null
 
-  // Resolve animationId: registry theme overrides legacy __animation token
+  // Resolve animationId: explicit __animation token (user override) wins over theme default
   const legacyAnimId  = getAnimationIdFromTokens(themeData?.tokens)
-  const animationId   = registryTheme?.animationId ?? legacyAnimId
+  const animationId   = legacyAnimId || registryTheme?.animationId
   const collection    = getAnimationCollection(animationId)
   const hasAnimation  = !!animationId
 
   // Whether the entrance uses the envelope experience or a loading screen.
-  // Driven by theme registry — no more hardcoded 'butterfly-garden' checks.
-  const useEnvelopeEntrance = registryTheme
-    ? ['theme_wedding_floral_blue', 'theme_wedding_dark_dramatic', 'theme_wedding_minimal_ivory']
-        .includes(registryTheme.id)
-    : animationId === 'butterfly-garden'  // legacy fallback
+  // If the user explicitly overrode the animation via the __animation token,
+  // that choice controls the entrance type (only butterfly-garden → envelope).
+  // Otherwise, fall back to the theme registry's entranceType.
+  const useEnvelopeEntrance = legacyAnimId
+    ? legacyAnimId === 'butterfly-garden'
+    : registryTheme
+      ? registryTheme.entranceType === 'envelope'
+      : false
 
   // Per-section decoration rules from the registry theme
   const sectionDecorations = registryTheme?.sectionDecorations ?? []
@@ -304,6 +308,17 @@ export function EventPage() {
                     opacity: bgOpacity,
                     pointerEvents: 'none',
                   }} />
+                )}
+
+                {/* Section background particles */}
+                {animDone && !!(section.props.bgParticle) && section.props.bgParticle !== 'none' && (
+                  <SectionParticleLayer
+                    particleId={section.props.bgParticle as string}
+                    count={(section.props.bgParticleCount as number) || 12}
+                    opacity={(section.props.bgParticleOpacity as number) || 0.7}
+                    speed={(section.props.bgParticleSpeed as 'slow' | 'normal' | 'fast') || 'normal'}
+                    size={(section.props.bgParticleSize as 'small' | 'medium' | 'large') || 'medium'}
+                  />
                 )}
 
                 {/* Theme decorations (wedding floral corners etc.) */}
