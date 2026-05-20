@@ -275,115 +275,50 @@ function TimelineView({
   )
 }
 
-// ── Cards Style — horizontal row layout ───────────────────────────────────────
+// ── Cards Style — horizontal snap carousel ────────────────────────────────────
 
-function CardItem({
-  item,
+const CARD_W = 264 // card width in px
+
+function NavArrow({
+  direction,
+  disabled,
   accentColor,
-  textColor,
-  categoryPalette,
+  onClick,
 }: {
-  item: AgendaItem
+  direction: 'prev' | 'next'
+  disabled: boolean
   accentColor: string
-  textColor: string
-  bgColor: string
-  categoryPalette?: { bg: string; text: string; border: string }
+  onClick: () => void
 }) {
   return (
-    <div
-      data-agenda-item
-      className="flex items-stretch rounded-xl overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
+    <button
+      aria-label={direction === 'prev' ? 'Previous item' : 'Next item'}
+      onClick={onClick}
       style={{
-        borderColor: hexToRgba(accentColor, 0.15),
-        backgroundColor: hexToRgba(accentColor, 0.03),
+        width: 32,
+        height: 32,
+        borderRadius: '50%',
+        border: `1.5px solid ${hexToRgba(accentColor, 0.3)}`,
+        background: 'transparent',
+        color: accentColor,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 20,
+        lineHeight: 1,
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.22 : 1,
+        transition: 'opacity 0.2s, background 0.2s',
+        padding: 0,
+        flexShrink: 0,
       }}
     >
-      {/* Left: accent bar + time block */}
-      <div
-        className="flex flex-col items-center justify-center gap-1 shrink-0"
-        style={{
-          width: 72,
-          backgroundColor: hexToRgba(accentColor, 0.1),
-          borderRight: `3px solid ${accentColor}`,
-        }}
-      >
-        <span
-          className="text-[11px] font-bold text-center leading-tight px-1"
-          style={{ color: accentColor }}
-        >
-          {item.time}
-        </span>
-        {item.endTime && (
-          <span
-            className="text-[9px] text-center leading-tight opacity-60"
-            style={{ color: accentColor }}
-          >
-            {item.endTime}
-          </span>
-        )}
-        {item.emoji && <span className="text-base mt-0.5">{item.emoji}</span>}
-      </div>
-
-      {/* Right: content */}
-      <div className="flex-1 min-w-0 px-4 py-3">
-        <div className="flex flex-wrap items-start gap-2 mb-1">
-          <h4
-            className="font-semibold text-sm leading-snug flex-1"
-            style={{ color: textColor }}
-          >
-            {item.title}
-          </h4>
-          {item.category && categoryPalette && (
-            <span
-              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0"
-              style={{
-                backgroundColor: categoryPalette.bg,
-                color: categoryPalette.text,
-                borderColor: categoryPalette.border,
-              }}
-            >
-              {item.category}
-            </span>
-          )}
-        </div>
-
-        {item.description && (
-          <p
-            className="text-[12px] leading-relaxed mb-1.5"
-            style={{ color: textColor, opacity: 0.6 }}
-          >
-            {item.description}
-          </p>
-        )}
-
-        {(item.speaker || item.location) && (
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-            {item.speaker && (
-              <span
-                className="flex items-center gap-1 text-[11px]"
-                style={{ color: textColor, opacity: 0.5 }}
-              >
-                <User size={10} />
-                {item.speaker}
-              </span>
-            )}
-            {item.location && (
-              <span
-                className="flex items-center gap-1 text-[11px]"
-                style={{ color: textColor, opacity: 0.5 }}
-              >
-                <MapPin size={10} />
-                {item.location}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+      {direction === 'prev' ? '‹' : '›'}
+    </button>
   )
 }
 
-function CardsView({
+function CardsCarouselView({
   items,
   accentColor,
   textColor,
@@ -396,21 +331,279 @@ function CardsView({
   bgColor: string
   allCategories: string[]
 }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  useItemStagger(containerRef, [items], 'x')
+  const scrollRef  = useRef<HTMLDivElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [activeIdx, setActiveIdx] = useState(0)
+  const disabled = useAnimationDisabled()
+
+  // Track the centred card using viewport-relative rects (reliable across all layouts)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const handle = () => {
+      const containerCx = el.getBoundingClientRect().left + el.clientWidth / 2
+      const cards = Array.from(el.querySelectorAll<HTMLElement>('[data-card]'))
+      let closest = 0, closestDist = Infinity
+      cards.forEach((card, i) => {
+        const rect = card.getBoundingClientRect()
+        const dist = Math.abs(rect.left + rect.width / 2 - containerCx)
+        if (dist < closestDist) { closestDist = dist; closest = i }
+      })
+      setActiveIdx(closest)
+    }
+    el.addEventListener('scroll', handle, { passive: true })
+    // Run once on mount so activeIdx starts correctly
+    handle()
+    return () => el.removeEventListener('scroll', handle)
+  }, [items])
+
+  // Smooth scroll to a card by index
+  const scrollTo = (idx: number) => {
+    const el = scrollRef.current
+    if (!el) return
+    const card = el.querySelectorAll<HTMLElement>('[data-card]')[idx]
+    card?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }
+
+  // Entrance animation for the whole carousel
+  useEffect(() => {
+    const el = wrapperRef.current
+    if (!el || disabled) return
+    gsap.set(el, { opacity: 0, y: 36 })
+    const trigger = ScrollTrigger.create({
+      trigger: el,
+      start: 'top 88%',
+      onEnter: () => gsap.to(el, { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }),
+      onLeaveBack: () => gsap.set(el, { opacity: 0, y: 36 }),
+    })
+    return () => {
+      trigger.kill()
+      gsap.set(el, { clearProps: 'all' })
+    }
+  }, [disabled, items])
+
+  // Fall back to white when bg is transparent or missing
+  const resolvedBg = !bgColor || bgColor === 'transparent' ? '#ffffff' : bgColor
 
   return (
-    <div ref={containerRef} className="mt-8 flex flex-col gap-3">
-      {items.map((item, i) => (
-        <CardItem
-          key={i}
-          item={item}
+    <div ref={wrapperRef} className="mt-8">
+      <style>{`.sdp-cscroll::-webkit-scrollbar{display:none}`}</style>
+
+      {/* ── Scroll track ── */}
+      <div
+        ref={scrollRef}
+        className="sdp-cscroll flex overflow-x-auto"
+        style={{
+          gap: 14,
+          scrollSnapType: 'x mandatory',
+          // Centre-align first / last card so they sit in the middle of the viewport
+          paddingLeft:    `calc(50% - ${CARD_W / 2}px)`,
+          paddingRight:   `calc(50% - ${CARD_W / 2}px)`,
+          paddingBottom:  16,
+          scrollbarWidth: 'none',
+          WebkitOverflowScrolling: 'touch',
+        } as React.CSSProperties}
+      >
+        {items.map((item, i) => {
+          const isActive = i === activeIdx
+          const palette  = item.category ? getCategoryPalette(item.category, allCategories) : undefined
+
+          return (
+            <div
+              key={i}
+              data-card
+              onClick={() => scrollTo(i)}
+              style={{
+                scrollSnapAlign: 'center',
+                minWidth:  CARD_W,
+                maxWidth:  CARD_W,
+                borderRadius: 22,
+                padding: '22px 20px',
+                cursor: 'pointer',
+                transition: 'transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease, box-shadow 0.4s ease',
+                transform:  isActive ? 'scale(1)'    : 'scale(0.90)',
+                opacity:    isActive ? 1             : 0.58,
+                backgroundColor: isActive ? accentColor : resolvedBg,
+                boxShadow: isActive
+                  ? `0 18px 52px ${hexToRgba(accentColor, 0.38)}`
+                  : '0 2px 14px rgba(0,0,0,0.06)',
+                border: isActive
+                  ? 'none'
+                  : `1px solid ${hexToRgba(textColor, 0.09)}`,
+                minHeight: 220,
+                display: 'flex',
+                flexDirection: 'column',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+              } as React.CSSProperties}
+            >
+              {/* Time range */}
+              <p style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: '0.09em',
+                textTransform: 'uppercase',
+                color: isActive ? 'rgba(255,255,255,0.68)' : accentColor,
+                margin: 0,
+                marginBottom: 8,
+              }}>
+                {item.time}{item.endTime ? ` – ${item.endTime}` : ''}
+              </p>
+
+              {/* Accent rule */}
+              <div style={{
+                height: 1.5,
+                borderRadius: 1,
+                backgroundColor: isActive
+                  ? 'rgba(255,255,255,0.22)'
+                  : hexToRgba(accentColor, 0.2),
+                marginBottom: 16,
+              }} />
+
+              {/* Emoji */}
+              {item.emoji && (
+                <div style={{ fontSize: 32, lineHeight: 1, marginBottom: 12 }}>
+                  {item.emoji}
+                </div>
+              )}
+
+              {/* Title */}
+              <h4 style={{
+                fontFamily: 'var(--font-heading, inherit)',
+                fontSize: 16,
+                fontWeight: 700,
+                lineHeight: 1.35,
+                color: isActive ? '#ffffff' : textColor,
+                margin: 0,
+                flex: 1,
+                paddingBottom: 14,
+              }}>
+                {item.title}
+              </h4>
+
+              {/* Description — 2-line clamp */}
+              {item.description && (
+                <p style={{
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  color: isActive ? 'rgba(255,255,255,0.65)' : textColor,
+                  opacity: isActive ? 1 : 0.55,
+                  margin: 0,
+                  marginBottom: 12,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                } as React.CSSProperties}>
+                  {item.description}
+                </p>
+              )}
+
+              {/* Speaker + Location */}
+              {(item.speaker || item.location) && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', marginBottom: 12 }}>
+                  {item.speaker && (
+                    <span style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      fontSize: 11,
+                      color: isActive ? 'rgba(255,255,255,0.65)' : textColor,
+                      opacity: isActive ? 1 : 0.5,
+                    }}>
+                      <User size={10} />
+                      {item.speaker}
+                    </span>
+                  )}
+                  {item.location && (
+                    <span style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      fontSize: 11,
+                      color: isActive ? 'rgba(255,255,255,0.65)' : textColor,
+                      opacity: isActive ? 1 : 0.5,
+                    }}>
+                      <MapPin size={10} />
+                      {item.location}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Category badge */}
+              {item.category && (
+                <span style={{
+                  alignSelf: 'flex-start',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  padding: '3px 10px',
+                  borderRadius: 100,
+                  border: isActive
+                    ? '1px solid rgba(255,255,255,0.3)'
+                    : `1px solid ${palette?.border ?? hexToRgba(accentColor, 0.3)}`,
+                  color: isActive ? 'rgba(255,255,255,0.9)' : palette?.text,
+                  backgroundColor: isActive
+                    ? 'rgba(255,255,255,0.15)'
+                    : palette?.bg,
+                }}>
+                  {item.category}
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── Navigation: prev · dots · next ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 18 }}>
+        <NavArrow
+          direction="prev"
+          disabled={activeIdx === 0}
           accentColor={accentColor}
-          textColor={textColor}
-          bgColor={bgColor}
-          categoryPalette={item.category ? getCategoryPalette(item.category, allCategories) : undefined}
+          onClick={() => scrollTo(Math.max(0, activeIdx - 1))}
         />
-      ))}
+
+        {/* Pill-dots */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {items.map((_, i) => (
+            <button
+              key={i}
+              aria-label={`Jump to item ${i + 1}`}
+              onClick={() => scrollTo(i)}
+              style={{
+                height: 6,
+                width: i === activeIdx ? 22 : 6,
+                borderRadius: 3,
+                padding: 0,
+                border: 'none',
+                backgroundColor: accentColor,
+                opacity: i === activeIdx ? 1 : 0.2,
+                transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            />
+          ))}
+        </div>
+
+        <NavArrow
+          direction="next"
+          disabled={activeIdx === items.length - 1}
+          accentColor={accentColor}
+          onClick={() => scrollTo(Math.min(items.length - 1, activeIdx + 1))}
+        />
+      </div>
+
+      {/* Counter */}
+      <p style={{
+        textAlign: 'center',
+        fontSize: 11,
+        color: textColor,
+        opacity: 0.28,
+        margin: '8px 0 0',
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        {activeIdx + 1} / {items.length}
+      </p>
     </div>
   )
 }
@@ -536,7 +729,7 @@ export function AgendaWidget({
     >
       <div
         className="mx-auto px-5 sm:px-8"
-        style={{ maxWidth: style === 'cards' ? '820px' : '680px' }}
+        style={{ maxWidth: style === 'cards' ? '900px' : '680px' }}
       >
         {/* Header */}
         <div className="text-center mb-2">
@@ -610,7 +803,7 @@ export function AgendaWidget({
           />
         )}
         {style === 'cards' && (
-          <CardsView
+          <CardsCarouselView
             items={displayItems}
             accentColor={resolvedAccent}
             textColor={textColor}
