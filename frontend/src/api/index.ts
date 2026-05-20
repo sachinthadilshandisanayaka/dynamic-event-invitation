@@ -52,6 +52,8 @@ export const authApi = {
 export const eventsApi = {
   list: (page = 0, size = 20) =>
     api.get(`/events?page=${page}&size=${size}`).then((r) => r.data.data),
+  listDeleted: (page = 0, size = 20) =>
+    api.get(`/events/history?page=${page}&size=${size}`).then((r) => r.data.data),
   get: (slug: string) => api.get(`/events/${slug}`).then((r) => r.data.data),
   getPublic: (slug: string) =>
     axios.get(`${API_URL}/api/events/${slug}`).then((r) => r.data.data),
@@ -60,7 +62,8 @@ export const eventsApi = {
     api.put(`/events/${slug}`, data).then((r) => r.data.data),
   publish: (slug: string) => api.put(`/events/${slug}/publish`).then((r) => r.data.data),
   unpublish: (slug: string) => api.put(`/events/${slug}/unpublish`).then((r) => r.data.data),
-  archive: (slug: string) => api.delete(`/events/${slug}`).then((r) => r.data),
+  delete: (slug: string) => api.delete(`/events/${slug}`).then((r) => r.data),
+  permanentDelete: (slug: string) => api.delete(`/events/${slug}/permanent`).then((r) => r.data),
   copy: (slug: string) => api.post(`/events/${slug}/copy`).then((r) => r.data.data),
 }
 

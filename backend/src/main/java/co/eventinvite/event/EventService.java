@@ -4,22 +4,26 @@ import co.eventinvite.event.dto.*;
 import co.eventinvite.event.entity.*;
 import co.eventinvite.event.repository.EventRepository;
 import co.eventinvite.layout.LayoutService;
+import co.eventinvite.media.MediaService;
 import co.eventinvite.shared.RestPage;
 import co.eventinvite.shared.exception.*;
 import co.eventinvite.theme.ThemeService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.*;
 import org.springframework.data.domain.*;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EventService {
@@ -30,6 +34,7 @@ public class EventService {
     private final EventRepository eventRepository;
     private final LayoutService layoutService;
     private final ThemeService themeService;
+    private final MediaService mediaService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -107,7 +112,9 @@ public class EventService {
     @Cacheable(value = "eventPage", key = "#slug")
     public EventResponse getPublic(String slug) {
         Event event = getBySlug(slug);
-        if (event.getStatus() == EventStatus.DRAFT || event.getStatus() == EventStatus.ARCHIVED) {
+        if (event.getStatus() == EventStatus.DRAFT
+                || event.getStatus() == EventStatus.ARCHIVED
+                || event.getStatus() == EventStatus.DELETED) {
             throw new NotFoundException("Event not found or not published");
         }
         return toResponse(event);
@@ -121,14 +128,20 @@ public class EventService {
 
     @Cacheable(value = "events", key = "#orgId + ':' + #page + ':' + #size")
     public RestPage<EventResponse> list(UUID orgId, int page, int size) {
-        Page<Event> eventsPage = eventRepository.findByOrgIdOrderByCreatedAtDesc(
-                orgId, PageRequest.of(page, size));
+        Page<Event> eventsPage = eventRepository.findByOrgIdAndStatusNotOrderByCreatedAtDesc(
+                orgId, EventStatus.DELETED, PageRequest.of(page, size));
 
         List<UUID> ids = eventsPage.map(Event::getId).toList();
         Map<UUID, String> sectionsMap = layoutService.getSectionsForEvents(ids);
 
         return new RestPage<>(eventsPage.map(e ->
                 toResponse(e, extractHeroTitle(sectionsMap.get(e.getId())))));
+    }
+
+    public RestPage<EventResponse> listDeleted(UUID orgId, int page, int size) {
+        Page<Event> eventsPage = eventRepository.findByOrgIdAndStatusOrderByDeletedAtDesc(
+                orgId, EventStatus.DELETED, PageRequest.of(page, size));
+        return new RestPage<>(eventsPage.map(this::toResponse));
     }
 
     @CacheEvict(value = "events", allEntries = true)
@@ -166,16 +179,51 @@ public class EventService {
         return toResponse(copy, null);
     }
 
+    /** Soft delete — moves to history. Permanently purged after 10 days. */
     @Caching(evict = {
         @CacheEvict(value = "eventPage", key = "#slug"),
         @CacheEvict(value = "events", allEntries = true)
     })
     @Transactional
-    public void archive(String slug, UUID orgId) {
+    public void softDelete(String slug, UUID orgId) {
         Event event = getBySlug(slug);
         assertOwner(event, orgId);
-        event.setStatus(EventStatus.ARCHIVED);
+        event.setStatus(EventStatus.DELETED);
+        event.setDeletedAt(Instant.now());
         eventRepository.save(event);
+    }
+
+    /** Hard delete — removes event, layout, theme, and all media from MinIO + DB. */
+    @Caching(evict = {
+        @CacheEvict(value = "eventPage", key = "#slug"),
+        @CacheEvict(value = "events", allEntries = true)
+    })
+    @Transactional
+    public void hardDelete(String slug, UUID orgId) {
+        Event event = getBySlug(slug);
+        assertOwner(event, orgId);
+        purgeEvent(event);
+    }
+
+    /** Scheduled: runs daily at 02:00 UTC and permanently deletes events deleted more than 10 days ago. */
+    @Scheduled(cron = "0 0 2 * * *")
+    @Transactional
+    public void purgeOldDeletedEvents() {
+        Instant cutoff = Instant.now().minus(10, ChronoUnit.DAYS);
+        List<Event> expired = eventRepository.findByStatusAndDeletedAtBefore(EventStatus.DELETED, cutoff);
+        for (Event event : expired) {
+            try {
+                purgeEvent(event);
+                log.info("Auto-purged event {} (deleted at {})", event.getSlug(), event.getDeletedAt());
+            } catch (Exception e) {
+                log.error("Failed to auto-purge event {}: {}", event.getSlug(), e.getMessage());
+            }
+        }
+    }
+
+    private void purgeEvent(Event event) {
+        mediaService.deleteAllByEventId(event.getId());
+        eventRepository.delete(event);
     }
 
     private Event getBySlug(String slug) {
@@ -204,7 +252,7 @@ public class EventService {
         return new EventResponse(e.getId(), e.getSlug(), e.getTitle(), displayTitle,
                 e.getStatus().name(), e.getEventDate(), e.getEventEndDate(), e.getTimezone(),
                 e.getDescription(), e.getOgTitle(), e.getOgDescription(), e.getOgImageUrl(),
-                e.getOrgId(), e.getCreatedAt(), e.getUpdatedAt());
+                e.getOrgId(), e.getCreatedAt(), e.getUpdatedAt(), e.getDeletedAt());
     }
 
     private String extractHeroTitle(String sectionsJson) {

@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface MediaRepository extends JpaRepository<MediaAsset, UUID> {
     List<MediaAsset> findByEventIdOrderByUploadedAtDesc(UUID eventId);
+    void deleteAllByEventId(UUID eventId);
 }

@@ -68,6 +68,19 @@ public class MediaService {
         mediaRepository.delete(asset);
     }
 
+    public void deleteAllByEventId(UUID eventId) {
+        List<MediaAsset> assets = mediaRepository.findByEventIdOrderByUploadedAtDesc(eventId);
+        for (MediaAsset asset : assets) {
+            try {
+                minioClient.removeObject(RemoveObjectArgs.builder()
+                        .bucket(bucket).object(asset.getObjectKey()).build());
+            } catch (Exception e) {
+                log.warn("Failed to delete object {} from MinIO: {}", asset.getObjectKey(), e.getMessage());
+            }
+        }
+        mediaRepository.deleteAllByEventId(eventId);
+    }
+
     private void ensureBucket() {
         try {
             boolean exists = minioClient.bucketExists(
