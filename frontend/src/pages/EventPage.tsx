@@ -229,13 +229,15 @@ export function EventPage() {
           </div>
         ) : (
           sortedSections.map((section, index) => {
-            const isHero    = section.type === 'hero'
-            const isSpacer  = section.type === 'spacer'
-            const bgImage   = section.props.bgImage   as string | undefined
-            const bgColor   = section.props.bgColor   as string | undefined
+            const isHero     = section.type === 'hero'
+            const isSpacer   = section.type === 'spacer'
+            const bgImage    = section.props.bgImage    as string | undefined
+            const bgColor    = section.props.bgColor    as string | undefined
             const fontFamily = section.props.fontFamily as string | undefined
             const textColor  = section.props.textColor  as string | undefined
             const bgOpacity  = (section.props.bgOverlay as number) ?? 1.0
+            const bgParticle = section.props.bgParticle as string | undefined
+            const hasParticles = !!bgParticle && bgParticle !== 'none'
 
             // Per-type max-widths tuned for readability and visual balance
             const CONTENT_MAX: Record<string, string> = {
@@ -256,9 +258,10 @@ export function EventPage() {
               if (section.type === 'event-details') {
                 s = { ...s, props: { ...s.props, eventDate: event.eventDate, timezone: event.timezone } }
               }
-              // When a section bgImage is set, make the widget background transparent
-              // so the image layer behind it shows through.
-              if (bgImage && !isHero) {
+              // When bgImage or particles are active, make the widget background
+              // transparent so the absolute background layer (z=0) and particles (z=1)
+              // show through instead of being covered by the widget's own background.
+              if ((bgImage || hasParticles) && !isHero) {
                 s = { ...s, props: { ...s.props, bgColor: 'transparent' } }
               }
               return s
@@ -284,9 +287,10 @@ export function EventPage() {
                   }),
                   position: 'relative',
                   overflow: 'hidden',
-                  // Background color on the section itself (not the widget)
-                  // so it fills the full section width even for narrow-content sections.
-                  ...(!isHero && bgColor && !bgImage ? { backgroundColor: bgColor } : {}),
+                  // Background color on the section itself only when there are no
+                  // particles — when particles are active, bgColor moves to an absolute
+                  // z=0 div so particles (z=1) can appear above it.
+                  ...(!isHero && bgColor && !bgImage && !hasParticles ? { backgroundColor: bgColor } : {}),
                   // Per-section font — set both as direct CSS property (for inheritance)
                   // and as CSS vars (for widgets that read them explicitly)
                   ...(fontFamily ? {
@@ -297,6 +301,16 @@ export function EventPage() {
                   ...(textColor  ? { '--color-text': textColor } as React.CSSProperties : {}),
                 }}
               >
+                {/* Background color as absolute layer when particles are active,
+                    so particles (z=1) can render above it instead of being covered */}
+                {!isHero && bgColor && !bgImage && hasParticles && (
+                  <div style={{
+                    position: 'absolute', inset: 0, zIndex: 0,
+                    backgroundColor: bgColor,
+                    pointerEvents: 'none',
+                  }} />
+                )}
+
                 {/* Background image — opacity-controlled layer behind the widget */}
                 {bgImage && (
                   <div style={{

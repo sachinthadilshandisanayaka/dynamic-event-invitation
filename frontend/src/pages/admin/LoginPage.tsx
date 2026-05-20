@@ -1,13 +1,12 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { authApi } from '../../api'
 import { useAuthStore } from '../../store/authStore'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const { setAuth } = useAuthStore()
-  const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [form, setForm] = useState({ name: '', email: '', password: '', orgName: '' })
+  const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -16,14 +15,12 @@ export function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const data = mode === 'login'
-        ? await authApi.login(form.email, form.password)
-        : await authApi.register(form.name, form.email, form.password, form.orgName)
+      const data = await authApi.login(form.email, form.password)
       setAuth(data.user, data.accessToken, data.refreshToken)
       navigate('/admin')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg || 'Something went wrong')
+      setError(msg || 'Invalid email or password')
     } finally {
       setLoading(false)
     }
@@ -37,36 +34,11 @@ export function LoginPage() {
             <span className="text-2xl text-white font-bold">E</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Event Invite</h1>
-          <p className="text-gray-500 mt-1">Create beautiful event invitations</p>
+          <p className="text-gray-500 mt-1">Sign in to manage your events</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="flex rounded-lg bg-gray-100 p-1 mb-6">
-            <button
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${mode === 'login' ? 'bg-white shadow text-indigo-600' : 'text-gray-500'}`}
-              onClick={() => setMode('login')}
-            >Login</button>
-            <button
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${mode === 'register' ? 'bg-white shadow text-indigo-600' : 'text-gray-500'}`}
-              onClick={() => setMode('register')}
-            >Register</button>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'register' && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
-                  <input className="input-field" type="text" required value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Organization Name</label>
-                  <input className="input-field" type="text" value={form.orgName}
-                    onChange={(e) => setForm({ ...form, orgName: e.target.value })} />
-                </div>
-              </>
-            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input className="input-field" type="email" required value={form.email}
@@ -75,7 +47,6 @@ export function LoginPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <input className="input-field" type="password" required
-                minLength={mode === 'register' ? 8 : 1}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })} />
             </div>
@@ -91,17 +62,15 @@ export function LoginPage() {
               disabled={loading}
               className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50"
             >
-              {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
+              {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-
         </div>
       </div>
 
       <style>{`
         .input-field {
           width: 100%;
-          px: 1rem;
           padding: 0.625rem 0.875rem;
           border: 1px solid #d1d5db;
           border-radius: 0.5rem;

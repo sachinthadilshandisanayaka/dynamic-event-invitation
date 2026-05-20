@@ -17,7 +17,7 @@ export interface EventResponse {
   slug: string
   title: string
   displayTitle?: string
-  status: 'DRAFT' | 'PUBLISHED' | 'LIVE' | 'ENDED' | 'ARCHIVED'
+  status: 'DRAFT' | 'PUBLISHED' | 'LIVE' | 'ENDED' | 'ARCHIVED' | 'DELETED'
   eventDate: string
   eventEndDate?: string
   timezone: string
@@ -28,6 +28,7 @@ export interface EventResponse {
   orgId: string
   createdAt: string
   updatedAt: string
+  deletedAt?: string
 }
 
 export interface Section {
