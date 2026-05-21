@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 
@@ -21,6 +22,17 @@ public class MediaController {
     private final MediaService mediaService;
     private final EventService eventService;
     private final UserRepository userRepository;
+
+    @PostMapping("/upload")
+    public ResponseEntity<ApiResponse<Map<String, String>>> upload(
+            @RequestParam("eventSlug") String slug,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserDetails principal) throws Exception {
+        UUID orgId = getOrgId(principal);
+        EventResponse event = eventService.getForAdmin(slug, orgId);
+        Map<String, String> result = mediaService.upload(event.id(), file);
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
 
     @PostMapping("/presign")
     public ResponseEntity<ApiResponse<Map<String, String>>> presign(

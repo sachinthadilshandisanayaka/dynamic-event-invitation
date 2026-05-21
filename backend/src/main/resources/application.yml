@@ -2,6 +2,12 @@ spring:
   application:
     name: event-invite-backend
 
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 22MB
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/eventinvite}
     username: ${SPRING_DATASOURCE_USERNAME:eventinvite}
