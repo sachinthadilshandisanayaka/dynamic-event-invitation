@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { MapPin, Navigation, ExternalLink, Search, Loader2 } from 'lucide-react'
+import { MapPin, Navigation, ExternalLink, Search, Loader2, Map } from 'lucide-react'
 import { gsap, ScrollTrigger } from '../../lib/gsap-init'
 import { AnimatedText } from '../animations/AnimatedText'
 import { useAnimationDisabled } from '../../contexts/AnimationContext'
@@ -46,65 +46,66 @@ async function geocode(query: string): Promise<Coords | null> {
   return null
 }
 
-function LeafletMap({ coords, venueName, zoom = 15, height = 400 }: {
-  coords: Coords; venueName?: string; zoom?: number; height?: number | string
+function GoogleMapEmbed({ coords, address, venueName, zoom = 15, height }: {
+  coords?: Coords | null
+  address?: string
+  venueName?: string
+  zoom?: number
+  height: number | string
 }) {
-  const mapId = `map-${coords.lat}-${coords.lng}`.replace(/\./g, '_')
+  const queryParam = coords
+    ? `${coords.lat},${coords.lng}`
+    : encodeURIComponent([venueName, address].filter(Boolean).join(', '))
 
-  useEffect(() => {
-    // Leaflet needs a container; we defer to avoid SSR issues
-    let map: unknown = null
-    const init = async () => {
-      const L = (await import('leaflet')).default
+  const embedUrl = `https://maps.google.com/maps?q=${queryParam}&z=${zoom}&output=embed&hl=en`
 
-      // Custom marker icon (leaflet default icon fix)
-      const icon = L.divIcon({
-        html: `<div style="
-          background: var(--color-primary, #6366f1);
-          width: 32px; height: 32px;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          border: 3px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        "></div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        className: '',
-      })
+  const openUrl = coords
+    ? `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([venueName, address].filter(Boolean).join(', '))}`
 
-      const container = document.getElementById(mapId)
-      if (!container) return
-
-      // Remove previous map instance
-      if ((container as HTMLElement & { _leaflet_id?: unknown })._leaflet_id) {
-        (container as HTMLElement & { _leaflet_id?: unknown })._leaflet_id = undefined
-        container.innerHTML = ''
-      }
-
-      const m = L.map(mapId, { scrollWheelZoom: false }).setView([coords.lat, coords.lng], zoom)
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).addTo(m)
-
-      L.marker([coords.lat, coords.lng], { icon })
-        .addTo(m)
-        .bindPopup(venueName || 'Event Venue')
-        .openPopup()
-
-      map = m
-    }
-
-    init()
-    return () => {
-      if (map && typeof (map as { remove?: () => void }).remove === 'function') {
-        (map as { remove: () => void }).remove()
-      }
-    }
-  }, [coords.lat, coords.lng, venueName, zoom, mapId])
-
-  return <div id={mapId} style={{ height, borderRadius: 'var(--border-radius, 8px)' }} className="w-full z-0" />
+  return (
+    <div style={{ position: 'relative', height, borderRadius: 'var(--border-radius, 12px)', overflow: 'hidden' }}>
+      <iframe
+        src={embedUrl}
+        style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+        allowFullScreen
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        title={venueName || 'Event Location'}
+      />
+      {/* Floating badge — click opens Google Maps in a new tab */}
+      <a
+        href={openUrl}
+        target="_blank"
+        rel="noreferrer"
+        title="Open in Google Maps"
+        style={{
+          position: 'absolute',
+          bottom: 12,
+          right: 12,
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          background: '#fff',
+          borderRadius: 10,
+          padding: '7px 13px',
+          fontSize: 12,
+          fontWeight: 700,
+          color: '#1a73e8',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
+          textDecoration: 'none',
+          transition: 'box-shadow 0.18s ease',
+          whiteSpace: 'nowrap',
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 4px 18px rgba(0,0,0,0.28)')}
+        onMouseLeave={(e) => (e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.18)')}
+      >
+        <Map size={13} />
+        Open in Google Maps
+      </a>
+    </div>
+  )
 }
 
 export function MapWidget({
@@ -180,8 +181,12 @@ export function MapWidget({
   }
 
   const mapsQuery = encodeURIComponent([venueName, address].filter(Boolean).join(', '))
-  const googleUrl = googleMapsUrl || `https://maps.google.com/?q=${mapsQuery}`
-  const osmUrl = `https://www.openstreetmap.org/search?query=${mapsQuery}`
+  const directionsUrl = coords
+    ? `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`
+    : googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`
+  const googleUrl = coords
+    ? `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`
+    : googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`
 
   // CSS clamp so the map is responsive to viewport changes and orientation flips
   const mapHeight = `clamp(220px, 55vw, ${height}px)`
@@ -238,7 +243,7 @@ export function MapWidget({
           {/* Action buttons — stack on mobile, row on sm+ */}
           <div className="flex flex-col sm:flex-row gap-2 px-4 sm:px-5 pb-4 sm:pb-5">
             <a
-              href={googleUrl}
+              href={directionsUrl}
               target="_blank"
               rel="noreferrer"
               className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
@@ -252,13 +257,13 @@ export function MapWidget({
               Get Directions
             </a>
             <a
-              href={osmUrl}
+              href={googleUrl}
               target="_blank"
               rel="noreferrer"
               className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
             >
               <ExternalLink size={15} className="text-gray-400" />
-              OpenStreetMap
+              Open Google Maps
             </a>
           </div>
         </div>
@@ -276,7 +281,11 @@ export function MapWidget({
           </div>
         ) : coords ? (
           <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
-            <LeafletMap coords={coords} venueName={venueName} zoom={zoom} height={mapHeight} />
+            <GoogleMapEmbed coords={coords} address={address} venueName={venueName} zoom={zoom} height={mapHeight} />
+          </div>
+        ) : address || venueName ? (
+          <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+            <GoogleMapEmbed address={address} venueName={venueName} zoom={zoom} height={mapHeight} />
           </div>
         ) : (
           /* Empty state */
