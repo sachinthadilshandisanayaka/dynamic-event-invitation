@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +26,35 @@ public class MediaService {
 
     @Value("${minio.public-url}")
     private String publicUrl;
+
+    public Map<String, String> upload(UUID eventId, MultipartFile file) throws Exception {
+        String original   = file.getOriginalFilename() != null ? file.getOriginalFilename() : "file";
+        String objectKey  = eventId + "/" + UUID.randomUUID() + "-" + sanitize(original);
+        String mimeType   = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+
+        ensureBucket();
+
+        minioClient.putObject(
+                PutObjectArgs.builder()
+                        .bucket(bucket)
+                        .object(objectKey)
+                        .stream(file.getInputStream(), file.getSize(), -1)
+                        .contentType(mimeType)
+                        .build());
+
+        String cdnUrl = publicUrl + "/" + bucket + "/" + objectKey;
+
+        MediaAsset asset = MediaAsset.builder()
+                .eventId(eventId)
+                .filename(original)
+                .contentType(mimeType)
+                .cdnUrl(cdnUrl)
+                .objectKey(objectKey)
+                .build();
+        mediaRepository.save(asset);
+
+        return Map.of("cdnUrl", cdnUrl, "objectKey", objectKey);
+    }
 
     public Map<String, String> presign(UUID eventId, String filename, String contentType) throws Exception {
         String objectKey = eventId + "/" + UUID.randomUUID() + "-" + sanitize(filename);
